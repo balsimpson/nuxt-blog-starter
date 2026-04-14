@@ -2,8 +2,15 @@
 export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
-    '@clerk/nuxt'
+    '@clerk/nuxt',
+    'convex-nuxt'
   ],
+
+  convex: {
+    url: process.env.CONVEX_URL,
+    manualInit: false,
+    server: false
+  },
 
   devtools: {
     enabled: true

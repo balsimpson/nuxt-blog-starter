@@ -14,10 +14,13 @@
     "@iconify-json/lucide": "^1.2.102",
     "@iconify-json/simple-icons": "^1.2.78",
     "@nuxt/ui": "^4.6.1",
+    "convex": "^1.35.1",
+    "convex-nuxt": "^0.1.5",
     "nuxt": "^4.4.2",
     "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "typescript": "^6.0.2",
     "vue-tsc": "^3.2.6"
   }
