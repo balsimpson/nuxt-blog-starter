@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useWindowScroll } from '@vueuse/core'
 
 const { y } = useWindowScroll()
+const route = useRoute()
 const isScrolled = computed(() => y.value > 20)
+const isBlogActive = computed(() => route.path.startsWith('/blog'))
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
     <UHeader
+      :toggle="false"
       :class="[
         'fixed top-0 left-0 right-0 z-50 transition-[padding,background-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-b',
         isScrolled 
@@ -23,7 +28,7 @@ const isScrolled = computed(() => y.value > 20)
         >
           <img 
             src="/bloggr-logo.png" 
-            class="h-10 sm:h-12 w-auto transition-all duration-500 ease-in-out" 
+            class="h-10 sm:h-12 w-auto dark:invert transition-all duration-500 ease-in-out" 
             alt="Bloggr Logo"
           >
         </NuxtLink>
@@ -33,13 +38,25 @@ const isScrolled = computed(() => y.value > 20)
         <div class="flex items-center gap-3">
 
           <UButton
+            to="/blog"
+            label="Blog"
+            icon="i-lucide-book"
+            color="neutral"
+            variant="ghost"
+            :class="[
+              'transition-all duration-300',
+              isBlogActive ? 'text-slate-950 bg-slate-200 dark:text-white dark:bg-slate-800' : ''
+            ]"
+          />
+
+          <UButton
             to="https://github.com/balsimpson/nuxt-blog-starter"
             target="_blank"
             icon="i-simple-icons-github"
             aria-label="GitHub"
             color="neutral"
             variant="ghost"
-            class="hidden sm:inline-flex hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-300"
+            class=" sm:inline-flex hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-300"
           />
         </div>
       </template>

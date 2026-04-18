@@ -3,7 +3,7 @@ import { computed, ref, onMounted } from 'vue'
 import { api } from '~~/convex/_generated/api'
 
 definePageMeta({
-  layout: 'admin',
+  layout: false,
   ssr: false
 })
 

@@ -8,6 +8,12 @@ const slug = route.params.slug as string
 const { data: post, isPending } = useConvexQuery(api.posts.getBySlug, { slug })
 const { data: allPosts } = useConvexQuery(api.posts.list, {})
 
+const isPostLoading = computed(() => isPending.value || post.value === undefined)
+const isRelatedPostsLoading = computed(() => allPosts.value === undefined)
+const shouldShowPostShell = computed(() => isPostLoading.value)
+const shouldShowContentShell = computed(() => isPostLoading.value)
+const shouldShowRelatedPostsShell = computed(() => Boolean(post.value) && isRelatedPostsLoading.value)
+
 useSeoMeta({
   title: () => post.value?.title || 'Blog Post',
   description: () => post.value?.excerpt || 'Read our latest blog post.'
@@ -76,7 +82,7 @@ const processedContent = computed(() => {
 
 <template>
   <div class="relative min-h-screen overflow-visible bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white transition-colors duration-500">
-    <UPage v-if="post">
+    <UPage v-if="post || shouldShowPostShell">
       <UPageHero :ui="{
         container: 'max-w-4xl sm:pb-8 lg:pt-24 lg:pb-12 pb-6 pt-20',
         headline: 'justify-start',
@@ -94,49 +100,83 @@ const processedContent = computed(() => {
           <div class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-50 dark:from-slate-950 to-transparent" />
         </div>
 
-        <div class="relative z-10 w-full space-y-8">
-            <UBreadcrumb :items="breadcrumbLinks" class="mb-4" />
-            
-            <UBadge
-              color="warning"
-              variant="soft"
-              class="rounded-full px-4 py-2 text-[10px] font-medium uppercase tracking-[0.32em] text-slate-950 dark:text-white"
-            >
-              <span class="mr-2 size-1.5 rounded-full bg-[color:var(--ui-warning)] shadow-[0_0_8px_rgba(var(--ui-warning),0.4)]" />
-              {{ post.originalPublishedAt ? new Date(post.originalPublishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('en-GB', {
-                day: 'numeric', month:
-                  'long', year: 'numeric'
-              }) : 'DRAFT' }}
-            </UBadge>
+        <div v-if="post" class="relative z-10 w-full space-y-8">
+          <UBreadcrumb :items="breadcrumbLinks" class="mb-4" />
 
-            <div class="max-w-4xl">
-              <h1
-                class="text-balance text-5xl font-bold leading-[1.05] tracking-[-0.04em] text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
-                {{ post.title }}
-              </h1>
-            </div>
+          <UBadge
+            color="warning"
+            variant="soft"
+            class="rounded-full px-4 py-2 text-[10px] font-medium uppercase tracking-[0.32em] text-slate-950 dark:text-white"
+          >
+            <span class="mr-2 size-1.5 rounded-full bg-[color:var(--ui-warning)] shadow-[0_0_8px_rgba(var(--ui-warning),0.4)]" />
+            {{ post.originalPublishedAt ? new Date(post.originalPublishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('en-GB', {
+              day: 'numeric', month:
+                'long', year: 'numeric'
+            }) : 'DRAFT' }}
+          </UBadge>
 
-            <div v-if="post.excerpt"
-              class="max-w-2xl text-pretty text-lg leading-7 tracking-[-0.01em] text-slate-600 dark:text-slate-400 sm:text-xl sm:leading-[1.75]">
-              <p>{{ post.excerpt }}</p>
-            </div>
-
-            <div v-if="post.tags && post.tags.length > 0" class="flex flex-wrap gap-2">
-              <UBadge v-for="tag in post.tags" :key="tag" color="neutral" variant="soft" size="md">
-                {{ tag }}
-              </UBadge>
-            </div>
+          <div class="max-w-4xl">
+            <h1
+              class="text-balance text-5xl font-bold leading-[1.05] tracking-[-0.04em] text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
+              {{ post.title }}
+            </h1>
           </div>
+
+          <div v-if="post.excerpt"
+            class="max-w-2xl text-pretty text-lg leading-7 tracking-[-0.01em] text-slate-600 dark:text-slate-400 sm:text-xl sm:leading-[1.75]">
+            <p>{{ post.excerpt }}</p>
+          </div>
+
+          <div v-if="post.tags && post.tags.length > 0" class="flex flex-wrap gap-2">
+            <UBadge v-for="tag in post.tags" :key="tag" color="neutral" variant="soft" size="md">
+              {{ tag }}
+            </UBadge>
+          </div>
+        </div>
+
+        <div v-else class="relative z-10 w-full space-y-8 min-h-[36rem]">
+          <USkeleton class="h-4 w-24 bg-white/10" />
+          <USkeleton class="h-3 w-32 bg-white/10" />
+          <div class="max-w-4xl space-y-3">
+            <USkeleton class="h-12 w-full bg-white/10" />
+            <USkeleton class="h-12 w-5/6 bg-white/10" />
+            <USkeleton class="h-12 w-4/6 bg-white/10" />
+          </div>
+          <div class="max-w-2xl space-y-2">
+            <USkeleton class="h-5 w-full bg-white/10" />
+            <USkeleton class="h-5 w-full bg-white/10" />
+            <USkeleton class="h-5 w-3/4 bg-white/10" />
+          </div>
+          <div class="flex gap-2">
+            <USkeleton class="h-6 w-16 bg-white/10 rounded-full" />
+            <USkeleton class="h-6 w-20 bg-white/10 rounded-full" />
+          </div>
+        </div>
       </UPageHero>
 
       <UPageBody class="relative z-10">
         <UContainer class="max-w-4xl">
-          <div
-            class="prose prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-headings:text-slate-950 dark:prose-headings:text-white prose-strong:text-slate-950 dark:prose-strong:text-white prose-a:text-[color:var(--ui-warning)] prose-blockquote:border-[color:var(--ui-warning)] prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400">
-            <MDC v-if="processedContent" :value="processedContent" />
-          </div>
+          <template v-if="shouldShowContentShell">
+            <div class="space-y-4 min-h-[40rem]">
+              <USkeleton class="h-5 w-full bg-white/10" />
+              <USkeleton class="h-5 w-full bg-white/10" />
+              <USkeleton class="h-5 w-full bg-white/10" />
+              <USkeleton class="h-5 w-4/5 bg-white/10" />
+              <div class="h-8" />
+              <USkeleton class="h-5 w-full bg-white/10" />
+              <USkeleton class="h-5 w-full bg-white/10" />
+              <USkeleton class="h-5 w-3/4 bg-white/10" />
+            </div>
+          </template>
 
-          <template v-if="post.originalSource || post.originalPublishedAt">
+          <template v-else>
+            <div
+              class="prose prose-slate dark:prose-invert max-w-none prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-headings:text-slate-950 dark:prose-headings:text-white prose-strong:text-slate-950 dark:prose-strong:text-white prose-a:text-[color:var(--ui-warning)] prose-blockquote:border-[color:var(--ui-warning)] prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400">
+              <MDC v-if="processedContent" :value="processedContent" />
+            </div>
+          </template>
+
+          <template v-if="post && !shouldShowContentShell && (post.originalSource || post.originalPublishedAt)">
             <USeparator class="my-12" />
             <div class="text-sm text-white/40 italic">
               <p v-if="post.originalSource">
@@ -151,7 +191,31 @@ const processedContent = computed(() => {
             </div>
           </template>
 
-          <template v-if="otherPosts.length > 0">
+          <template v-if="shouldShowRelatedPostsShell">
+            <USeparator class="my-24" />
+            <div class="space-y-12 mb-24">
+              <div class="flex items-center justify-between">
+                <div class="space-y-3">
+                  <USkeleton class="h-7 w-40 bg-white/10" />
+                </div>
+                <USkeleton class="h-5 w-24 bg-white/10" />
+              </div>
+
+              <div class="grid grid-cols-1 gap-8 mt-8 md:grid-cols-2">
+                <div v-for="index in 2" :key="index" class="relative h-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white/80 p-8 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/40 dark:shadow-none">
+                  <div class="flex h-full flex-col space-y-4">
+                    <USkeleton class="h-3 w-28 bg-white/10" />
+                    <USkeleton class="h-7 w-4/5 bg-white/10" />
+                    <USkeleton class="h-4 w-full bg-white/10" />
+                    <USkeleton class="h-4 w-5/6 bg-white/10" />
+                  </div>
+                  <div class="absolute -right-6 -top-6 size-24 rounded-full bg-warning/5 blur-2xl" />
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="otherPosts.length > 0">
             <USeparator class="my-24" />
             <div class="space-y-12 mb-24">
               <div class="flex items-center justify-between">
@@ -184,15 +248,6 @@ const processedContent = computed(() => {
           </template>
         </UContainer>
       </UPageBody>
-    </UPage>
-    <UPage v-else-if="post === undefined || isPending">
-      <UPageHero :ui="{ container: 'max-w-4xl' }">
-        <div class="space-y-8">
-          <USkeleton class="h-8 w-48 bg-white/10" />
-          <USkeleton class="h-24 w-full bg-white/10" />
-          <USkeleton class="h-12 w-2/3 bg-white/10" />
-        </div>
-      </UPageHero>
     </UPage>
     <UPage v-else>
       <div class="flex flex-col items-center justify-center py-48 text-white">

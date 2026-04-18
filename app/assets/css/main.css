@@ -16,3 +16,10 @@
   --color-green-900: #0A5331;
   --color-green-950: #052E16;
 }
+
+/* Hide the mobile menu button in UHeader */
+@media (max-width: 1023px) { /* Targeting screens smaller than Tailwind's 'lg' breakpoint */
+  .UHeader > div > div:last-child > button {
+    display: none !important;
+  }
+}
