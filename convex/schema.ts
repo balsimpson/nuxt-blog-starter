@@ -11,6 +11,7 @@ export default defineSchema({
   posts: defineTable({
     slug: v.string(),
     title: v.optional(v.string()),
+    author: v.optional(v.string()),
     content: v.string(),
     contentType: v.string(),
     publishStatus: v.optional(v.string()), // 'draft' | 'published'
@@ -23,5 +24,7 @@ export default defineSchema({
     originalSource: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number()
-  }).index('by_slug', ['slug'])
+  })
+    .index('by_slug', ['slug'])
+    .index('by_author', ['author'])
 })

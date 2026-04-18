@@ -3,7 +3,9 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
     '@clerk/nuxt',
-    'convex-nuxt'
+    'convex-nuxt',
+    '@nuxtjs/mdc',
+    'motion-v/nuxt'
   ],
 
   convex: {

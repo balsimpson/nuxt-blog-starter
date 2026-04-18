@@ -31,11 +31,23 @@ export const list = query({
   }
 })
 
+export const listPublished = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query('posts')
+      .withIndex('by_slug') // Optional, just to use an index if needed, but filtering is needed
+      .filter(q => q.eq(q.field('publishStatus'), 'published'))
+      .collect()
+  }
+})
+
 export const upsert = mutation({
   args: {
     id: v.optional(v.id('posts')),
     slug: v.string(),
     title: v.optional(v.string()),
+    author: v.optional(v.string()),
     content: v.string(),
     contentType: v.string(),
     publishStatus: v.optional(v.string()),
@@ -71,6 +83,7 @@ export const upsert = mutation({
       await ctx.db.patch(existing._id, {
         slug: args.slug,
         title: args.title,
+        author: args.author,
         content: args.content,
         contentType: args.contentType,
         publishStatus,
@@ -90,6 +103,7 @@ export const upsert = mutation({
     const postId = await ctx.db.insert('posts', {
       slug: args.slug,
       title: args.title,
+      author: args.author,
       content: args.content,
       contentType: args.contentType,
       publishStatus,

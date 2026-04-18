@@ -8,7 +8,7 @@ import { ImageUpload } from '~/utils/EditorImageUploadExtension'
 import { Youtube } from '@tiptap/extension-youtube'
 
 definePageMeta({
-  layout: 'admin',
+  layout: false,
   ssr: false
 })
 
@@ -19,6 +19,7 @@ const router = useRouter()
 
 const title = ref('')
 const slug = ref('')
+const author = ref('')
 const content = ref('')
 const status = ref<PostStatus>('draft')
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -166,6 +167,7 @@ async function loadPost(id: string) {
     if (post) {
       title.value = post.title || ''
       slug.value = post.slug
+      author.value = post.author || ''
       content.value = post.content
       status.value = post.contentType === 'draft' ? 'draft' : 'published'
       lastSavedAt.value = post.updatedAt
@@ -208,6 +210,7 @@ async function savePost(nextStatus: PostStatus, isAutoSave = false) {
       id: (hydratedId.value || undefined) as any,
       slug: currentSlug,
       title: title.value.trim() || undefined,
+      author: author.value || undefined,
       content: content.value,
       contentType: nextStatus === 'draft' ? 'draft' : 'published',
       publishStatus: nextStatus,
@@ -241,6 +244,7 @@ function createNewPost() {
 
   title.value = ''
   slug.value = ''
+  author.value = ''
   content.value = ''
   status.value = 'draft'
   saveState.value = 'idle'
@@ -270,7 +274,7 @@ function createNewPost() {
       content-type="markdown"
       class="flex flex-col flex-1"
       :ui="{
-        base: 'p-8 sm:p-16 lg:p-24 max-w-2xl mx-auto focus:outline-none flex-1',
+        base: 'p-8 sm:p-16 lg:p-24 max-w-4xl mx-auto focus:outline-none flex-1',
         content: 'prose prose-primary dark:prose-invert max-w-none'
       }"
     >
@@ -292,20 +296,20 @@ function createNewPost() {
             </div>
 
             <div class="flex items-center gap-2">
-              <div class="mr-4 hidden items-center gap-1.5 text-xs sm:flex">
+              <div class="flex items-center gap-1.5 text-xs mr-2">
                 <template v-if="saveState === 'saved' && lastSavedAt">
                   <UIcon
                     name="i-lucide-check-circle-2"
                     class="text-success h-3.5 w-3.5"
                   />
-                  <span class="text-muted">Saved at {{ new Date(lastSavedAt).toLocaleTimeString() }}</span>
+                  <span class="text-muted hidden sm:inline">Saved at {{ new Date(lastSavedAt).toLocaleTimeString() }}</span>
                 </template>
                 <template v-else-if="saveState === 'saving' || isSaving">
                   <UIcon
                     name="i-lucide-refresh-cw"
                     class="h-3.5 w-3.5 animate-spin"
                   />
-                  <span class="text-muted">Saving...</span>
+                  <span class="text-muted hidden sm:inline">Saving...</span>
                 </template>
               </div>
 
@@ -317,7 +321,7 @@ function createNewPost() {
                 icon="i-lucide-trash-2"
                 @click="onDeletePost"
               >
-                Delete
+                <span class="hidden sm:inline">Delete</span>
               </UButton>
               <UButton
                 color="neutral"
@@ -326,7 +330,7 @@ function createNewPost() {
                 icon="i-lucide-settings"
                 @click="isSettingsOpen = true"
               >
-                Settings
+                <span class="hidden sm:inline">Settings</span>
               </UButton>
 
               <template v-if="status === 'published'">
@@ -368,10 +372,12 @@ function createNewPost() {
               v-model="title"
               placeholder="Post title..."
               variant="none"
-              class="text-4xl sm:text-5xl md:text-6xl font-bold text-neutral-900 dark:text-white"
+              class="w-full"
               :rows="1"
               autoresize
-              :ui="{ base: 'p-0 min-h-0 md:text-2xl text-2xl' }"
+              :ui="{
+                base: 'p-0 text-4xl sm:text-5xl md:text-6xl font-bold text-neutral-900 dark:text-white overflow-hidden resize-none'
+              }"
             />
             <!-- <UInput v-model="slug" placeholder="slug" icon="i-lucide-file-text" size="sm" variant="soft" /> -->
           </div>
@@ -381,7 +387,8 @@ function createNewPost() {
           <UEditorToolbar
             :editor="editor"
             :items="toolbarItems"
-            class="overflow-x-auto justify-center"
+            class="overflow-x-auto justify-center "
+            :ui="{group: 'flex-wrap'}"
           />
         </div>
       </div>
@@ -411,6 +418,18 @@ function createNewPost() {
             <UInput
               v-model="slug"
               placeholder="post-slug"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            name="author"
+            label="Author"
+            help="The name of the post author."
+          >
+            <UInput
+              v-model="author"
+              placeholder="Author name"
               class="w-full"
             />
           </UFormField>

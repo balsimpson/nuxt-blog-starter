@@ -14,7 +14,7 @@ watch(
   [isLoaded, isSignedIn],
   async ([loaded, signedIn]) => {
     if (!loaded || !signedIn) return
-    await navigateTo('/', { replace: true })
+    await navigateTo('/admin', { replace: true })
   },
   { immediate: true }
 )
