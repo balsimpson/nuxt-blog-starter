@@ -97,6 +97,14 @@ const postDisplayDate = (post: Post) => {
 
           <div class="flex gap-2">
             <UButton
+              to="/admin/generate"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-sparkles"
+            >
+              Generate Article
+            </UButton>
+            <UButton
               to="/admin/editor"
               color="primary"
               icon="i-lucide-plus"
