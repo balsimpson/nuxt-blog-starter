@@ -41,6 +41,11 @@ NUXT_CLERK_SECRET_KEY=your_secret_key
 
 # Convex Backend
 CONVEX_URL=your_convex_deployment_url
+
+# Optional AI Article Generation
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=openai/gpt-4o-mini
+TAVILY_API_KEY=your_tavily_api_key
 ```
 
 ### 3. Initialize Convex
@@ -100,4 +105,3 @@ To start managing your blog:
 ## 📝 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
-

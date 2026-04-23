@@ -17,13 +17,21 @@ type GenerationSession = {
   status: string
   stage: string
   currentQuestion?: string
+  searchQueries?: string[]
+  gapAnalysis?: string[]
   outline?: string[]
   researchSummary?: string
+  sourceLinks?: Array<{
+    title: string
+    url: string
+    reason: string
+  }>
   draftTitle?: string
   draftExcerpt?: string
   draftContent?: string
   reviewNotes?: string[]
   linkedPostId?: string
+  agentThreadId?: string
   approvedAt?: number
   lastError?: string
   updatedAt: number
@@ -41,13 +49,20 @@ const selectedSession = ref<GenerationSession | null>(null)
 const selectedSessionLoading = ref(false)
 const selectedSessionError = ref<string | null>(null)
 
-const { data: sessions, isPending: isSessionsPending } = useConvexQuery(api.posts.listGenerationSessions)
+const { data: sessions, isPending: isSessionsPending } = useConvexQuery(api.articleGeneration.listGenerationSessions)
 const activeSession = computed(() => selectedSession.value as GenerationSession | null)
 const isSessionPending = computed(() => Boolean(selectedSessionId.value) && selectedSessionLoading.value && !activeSession.value)
 
-const { mutate: createSession, isPending: isCreating } = useConvexMutation(api.posts.createGenerationSession)
-const { mutate: addAnswer, isPending: isReplying } = useConvexMutation(api.posts.addGenerationAnswer)
-const { mutate: approveSession, isPending: isApproving } = useConvexMutation(api.posts.approveGenerationSession)
+const { mutate: createSession, isPending: isCreating } = useConvexMutation(api.articleGeneration.createGenerationSession)
+const { mutate: addAnswer, isPending: isReplying } = useConvexMutation(api.articleGeneration.addGenerationAnswer)
+const { mutate: regenerateQuestion, isPending: isRefreshingQuestion } = useConvexMutation(api.articleGeneration.regenerateClarificationQuestion)
+const { mutate: approveSession, isPending: isApproving } = useConvexMutation(api.articleGeneration.approveGenerationSession)
+const { mutate: retrySession, isPending: isRetrying } = useConvexMutation(api.articleGeneration.retryGenerationSession)
+const { mutate: deleteSession, isPending: isDeleting } = useConvexMutation(api.articleGeneration.deleteGenerationSession)
+
+const selectedSessionVersion = computed(() => {
+  return (sessions.value || []).find(session => session._id === selectedSessionId.value)?.updatedAt || null
+})
 
 watch(sessions, (value) => {
   if (!selectedSessionId.value && value?.length && value[0]) {
@@ -55,7 +70,7 @@ watch(sessions, (value) => {
   }
 }, { immediate: true })
 
-watch(selectedSessionId, async (id) => {
+watch([selectedSessionId, selectedSessionVersion], async ([id]) => {
   if (!id) {
     selectedSession.value = null
     selectedSessionError.value = null
@@ -66,7 +81,7 @@ watch(selectedSessionId, async (id) => {
   selectedSessionError.value = null
 
   try {
-    selectedSession.value = await convex.query(api.posts.getGenerationSession, { id: id as any }) as GenerationSession | null
+    selectedSession.value = await convex.query(api.articleGeneration.getGenerationSession, { id: id as any }) as GenerationSession | null
   }
   catch (error) {
     selectedSession.value = null
@@ -79,9 +94,250 @@ watch(selectedSessionId, async (id) => {
 
 const orderedSessions = computed(() => [...(sessions.value || [])].sort((a, b) => b.updatedAt - a.updatedAt))
 const currentSession = computed(() => activeSession.value)
+const statusMessages = computed(() => {
+  if (!currentSession.value) {
+    return []
+  }
+
+  return currentSession.value.messages
+    .filter(message => message.kind === 'status')
+    .slice()
+    .reverse()
+})
+
+const researchTraceMessages = computed(() => {
+  if (!currentSession.value) {
+    return []
+  }
+
+  return currentSession.value.messages.filter(message => message.kind === 'status' && message.content.startsWith('Research trace:'))
+})
+
+const latestStatusMessage = computed(() => statusMessages.value[0]?.content || null)
+
+const workflowStepDefinitions = [
+  {
+    key: 'clarification',
+    title: 'Clarification',
+    description: 'Lock the brief and gather the follow-up answer.'
+  },
+  {
+    key: 'research',
+    title: 'Research',
+    description: 'Search the web, compare coverage, and save the research brief.'
+  },
+  {
+    key: 'outline',
+    title: 'Outline',
+    description: 'Turn the saved research into a structured article outline.'
+  },
+  {
+    key: 'draft',
+    title: 'Draft',
+    description: 'Write the full article draft and reviewer notes.'
+  },
+  {
+    key: 'approval',
+    title: 'Approval',
+    description: 'Review the draft and send it to the editor.'
+  }
+] as const
+
+type WorkflowStepKey = typeof workflowStepDefinitions[number]['key']
+type WorkflowStepState = 'complete' | 'active' | 'pending' | 'error'
+
+function hasClarificationCheckpoint(session: GenerationSession) {
+  return session.messages.some(message => message.role === 'user' && message.kind === 'answer') || session.stage !== 'clarification'
+}
+
+function hasResearchCheckpoint(session: GenerationSession) {
+  return Boolean(session.researchSummary)
+}
+
+function hasOutlineCheckpoint(session: GenerationSession) {
+  return Boolean(session.outline?.length)
+}
+
+function hasDraftCheckpoint(session: GenerationSession) {
+  return Boolean(session.draftTitle && session.draftContent)
+}
+
+function getWorkflowStepState(session: GenerationSession, step: WorkflowStepKey): WorkflowStepState {
+  if (session.status === 'error' && session.stage === step) {
+    return 'error'
+  }
+
+  switch (step) {
+    case 'clarification':
+      return hasClarificationCheckpoint(session)
+        ? 'complete'
+        : session.stage === 'clarification' ? 'active' : 'pending'
+    case 'research':
+      return hasResearchCheckpoint(session)
+        ? 'complete'
+        : session.stage === 'research' ? 'active' : 'pending'
+    case 'outline':
+      return hasOutlineCheckpoint(session)
+        ? 'complete'
+        : session.stage === 'outline' ? 'active' : 'pending'
+    case 'draft':
+      return hasDraftCheckpoint(session)
+        ? 'complete'
+        : session.stage === 'draft' ? 'active' : 'pending'
+    case 'approval':
+      if (session.status === 'approved') {
+        return 'complete'
+      }
+
+      return session.status === 'ready_for_approval' || session.stage === 'approval'
+        ? 'active'
+        : 'pending'
+    default:
+      return 'pending'
+  }
+}
+
+const workflowSteps = computed(() => {
+  if (!currentSession.value) {
+    return []
+  }
+
+  return workflowStepDefinitions.map(step => ({
+    ...step,
+    state: getWorkflowStepState(currentSession.value!, step.key)
+  }))
+})
+
+function getCheckpointLabel(session: GenerationSession) {
+  if (hasDraftCheckpoint(session)) {
+    return 'Draft'
+  }
+
+  if (hasOutlineCheckpoint(session)) {
+    return 'Outline'
+  }
+
+  if (hasResearchCheckpoint(session)) {
+    return 'Research'
+  }
+
+  if (hasClarificationCheckpoint(session)) {
+    return 'Clarification'
+  }
+
+  return 'Session start'
+}
+
+const lastSavedCheckpoint = computed(() => {
+  if (!currentSession.value) {
+    return null
+  }
+
+  return getCheckpointLabel(currentSession.value)
+})
+
+const currentActivity = computed(() => {
+  if (!currentSession.value) {
+    return 'Select a session to view the pipeline.'
+  }
+
+  return latestStatusMessage.value
+    || currentSession.value.lastError
+    || 'Waiting for the next action.'
+})
+
+const recoverySummary = computed(() => {
+  if (!currentSession.value) {
+    return ''
+  }
+
+  if (currentSession.value.status === 'approved') {
+    return 'All checkpoints are complete and the approved draft is already in the editor.'
+  }
+
+  if (currentSession.value.status === 'ready_for_approval') {
+    return 'All generation checkpoints are saved. The workflow is waiting for your approval.'
+  }
+
+  if (currentSession.value.status !== 'error') {
+    return `Last saved checkpoint: ${lastSavedCheckpoint.value}. If a later step fails, retry will resume from the most recent saved checkpoint when possible.`
+  }
+
+  if (hasDraftCheckpoint(currentSession.value)) {
+    return 'Last saved checkpoint: Draft. Retry will recover the saved draft and take you back to approval.'
+  }
+
+  if (hasOutlineCheckpoint(currentSession.value)) {
+    return 'Last saved checkpoint: Outline. Retry will skip research and outline generation, then continue with drafting.'
+  }
+
+  if (hasResearchCheckpoint(currentSession.value)) {
+    return 'Last saved checkpoint: Research. Retry will skip live research and continue from the outline step.'
+  }
+
+  if (hasClarificationCheckpoint(currentSession.value)) {
+    return 'No structured research checkpoint was saved yet. Retry will rerun the research phase.'
+  }
+
+  return 'The failure happened before clarification completed. Retry will ask the agent for a new follow-up question.'
+})
+
+function stepIcon(state: WorkflowStepState) {
+  switch (state) {
+    case 'complete':
+      return 'i-lucide-check-circle-2'
+    case 'active':
+      return 'i-lucide-loader-circle'
+    case 'error':
+      return 'i-lucide-circle-alert'
+    default:
+      return 'i-lucide-circle-dashed'
+  }
+}
+
+function stepIconClass(state: WorkflowStepState) {
+  switch (state) {
+    case 'complete':
+      return 'text-success'
+    case 'active':
+      return 'text-primary animate-spin'
+    case 'error':
+      return 'text-error'
+    default:
+      return 'text-muted'
+  }
+}
+
+function stepBadgeColor(state: WorkflowStepState) {
+  switch (state) {
+    case 'complete':
+      return 'success'
+    case 'active':
+      return 'primary'
+    case 'error':
+      return 'error'
+    default:
+      return 'neutral'
+  }
+}
+
+function stepStateLabel(state: WorkflowStepState) {
+  switch (state) {
+    case 'complete':
+      return 'done'
+    case 'active':
+      return 'active'
+    case 'error':
+      return 'failed'
+    default:
+      return 'pending'
+  }
+}
+
 const stageTone = computed(() => {
   switch (currentSession.value?.status) {
     case 'ready_for_approval':
+    case 'approved':
       return 'success'
     case 'error':
       return 'error'
@@ -92,6 +348,16 @@ const stageTone = computed(() => {
 
 const canCreate = computed(() => starterPrompt.value.trim().length > 12)
 const canReply = computed(() => Boolean(currentSession.value?.currentQuestion) && reply.value.trim().length > 0)
+const canRefreshQuestion = computed(() => {
+  if (!currentSession.value) {
+    return false
+  }
+
+  const hasAnswer = currentSession.value.messages.some(message => message.role === 'user' && message.kind === 'answer')
+  return currentSession.value.status === 'collecting_input'
+    && currentSession.value.stage === 'clarification'
+    && !hasAnswer
+})
 
 async function onCreateSession() {
   if (!canCreate.value) {
@@ -130,6 +396,43 @@ async function onApprove() {
   }
 }
 
+async function onRefreshQuestion() {
+  if (!currentSession.value || !canRefreshQuestion.value) {
+    return
+  }
+
+  await regenerateQuestion({
+    sessionId: currentSession.value._id as any
+  })
+}
+
+async function onRetry() {
+  if (!currentSession.value || currentSession.value.status !== 'error') {
+    return
+  }
+
+  await retrySession({
+    sessionId: currentSession.value._id as any
+  })
+}
+
+async function onDeleteSession() {
+  if (!currentSession.value) {
+    return
+  }
+
+  const confirmed = confirm('Delete this research session and stop all related activity?')
+  if (!confirmed) {
+    return
+  }
+
+  await deleteSession({
+    sessionId: currentSession.value._id as any
+  })
+
+  selectedSessionId.value = orderedSessions.value.find(session => session._id !== currentSession.value?._id)?._id || null
+}
+
 const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString([], {
   month: 'short',
   day: 'numeric',
@@ -147,7 +450,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
             Start a new article
           </h2>
           <p class="mt-1 text-sm text-muted">
-            Describe the article you want and the workflow will guide the rest.
+            Describe the article you want, or skip this and write manually in the normal editor.
           </p>
         </div>
       </template>
@@ -204,7 +507,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
                   {{ session.title }}
                 </p>
                 <UBadge
-                  :color="session.status === 'ready_for_approval' ? 'success' : 'neutral'"
+                  :color="session.status === 'ready_for_approval' || session.status === 'approved' ? 'success' : session.status === 'error' ? 'error' : 'neutral'"
                   variant="soft"
                   size="sm"
                 >
@@ -242,7 +545,27 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
             </p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <UButton
+              v-if="currentSession?.status === 'error'"
+              color="error"
+              variant="soft"
+              icon="i-lucide-rotate-cw"
+              :loading="isRetrying"
+              @click="onRetry"
+            >
+              Retry generation
+            </UButton>
+            <UButton
+              v-if="currentSession"
+              color="error"
+              variant="ghost"
+              icon="i-lucide-trash-2"
+              :loading="isDeleting"
+              @click="onDeleteSession"
+            >
+              Delete session
+            </UButton>
             <UBadge
               v-if="currentSession"
               :color="stageTone"
@@ -267,13 +590,178 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
         v-if="currentSession"
         class="space-y-6"
       >
+        <div
+          v-if="currentSession.lastError"
+          class="rounded-2xl border border-error/40 bg-error/5 px-4 py-4 text-sm text-error"
+        >
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="font-semibold">
+                Workflow stopped in {{ currentSession.stage.replace('-', ' ') }}
+              </p>
+              <p class="mt-1 whitespace-pre-wrap">
+                {{ currentSession.lastError }}
+              </p>
+              <p class="mt-2 text-xs text-error/80">
+                {{ recoverySummary }}
+              </p>
+            </div>
+
+            <UButton
+              color="error"
+              variant="soft"
+              icon="i-lucide-rotate-cw"
+              :loading="isRetrying"
+              @click="onRetry"
+            >
+              Retry
+            </UButton>
+          </div>
+        </div>
+
+        <UCard variant="soft">
+          <template #header>
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-semibold text-highlighted">
+                  Live pipeline status
+                </h3>
+                <p class="mt-1 text-sm text-muted">
+                  Verbose progress, checkpoints, and recovery behavior for this run.
+                </p>
+              </div>
+              <span class="text-xs text-muted">
+                Updated {{ formatRelative(currentSession.updatedAt) }}
+              </span>
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
+              <div class="rounded-2xl border border-default bg-default/40 px-4 py-3">
+                <p class="text-xs font-medium uppercase tracking-wide text-muted">
+                  Current activity
+                </p>
+                <p class="mt-2 whitespace-pre-wrap text-sm text-toned">
+                  {{ currentActivity }}
+                </p>
+              </div>
+
+              <div class="rounded-2xl border border-default bg-default/40 px-4 py-3">
+                <p class="text-xs font-medium uppercase tracking-wide text-muted">
+                  Checkpoint + recovery
+                </p>
+                <p class="mt-2 text-sm text-toned">
+                  {{ recoverySummary }}
+                </p>
+              </div>
+            </div>
+
+            <div class="grid gap-3 xl:grid-cols-5">
+              <div
+                v-for="step in workflowSteps"
+                :key="step.key"
+                class="rounded-2xl border px-4 py-3"
+                :class="step.state === 'error' ? 'border-error/40 bg-error/5' : step.state === 'active' ? 'border-primary/40 bg-primary/5' : 'border-default bg-default/30'"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start gap-3">
+                    <UIcon
+                      :name="stepIcon(step.state)"
+                      class="mt-0.5 size-4 shrink-0"
+                      :class="stepIconClass(step.state)"
+                    />
+                    <div>
+                      <p class="text-sm font-semibold text-highlighted">
+                        {{ step.title }}
+                      </p>
+                      <p class="mt-1 text-xs text-muted">
+                        {{ step.description }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <UBadge
+                    :color="stepBadgeColor(step.state)"
+                    variant="soft"
+                    size="sm"
+                    class="capitalize"
+                  >
+                    {{ stepStateLabel(step.state) }}
+                  </UBadge>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="statusMessages.length"
+              class="rounded-2xl border border-default bg-default/30 px-4 py-3"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-xs font-medium uppercase tracking-wide text-muted">
+                  Recent system updates
+                </p>
+                <span class="text-xs text-muted">
+                  {{ Math.min(statusMessages.length, 6) }} shown
+                </span>
+              </div>
+
+              <div class="mt-3 space-y-3">
+                <div
+                  v-for="message in statusMessages.slice(0, 6)"
+                  :key="message._id"
+                  class="rounded-xl border border-default bg-background px-3 py-3"
+                >
+                  <div class="flex items-center justify-between gap-3 text-xs">
+                    <span class="font-medium text-highlighted">System</span>
+                    <span class="text-muted">{{ formatRelative(message.createdAt) }}</span>
+                  </div>
+                  <p class="mt-2 whitespace-pre-wrap text-sm text-toned">
+                    {{ message.content }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="researchTraceMessages.length"
+              class="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-xs font-medium uppercase tracking-wide text-muted">
+                  Research trace
+                </p>
+                <span class="text-xs text-muted">
+                  {{ researchTraceMessages.length }} steps
+                </span>
+              </div>
+
+              <div class="mt-3 space-y-2">
+                <div
+                  v-for="message in researchTraceMessages.slice(-8)"
+                  :key="message._id"
+                  class="rounded-xl border border-primary/15 bg-background px-3 py-2 text-sm text-toned"
+                >
+                  <div class="mb-1 flex items-center justify-between gap-3 text-xs">
+                    <span class="font-medium text-highlighted">Trace</span>
+                    <span class="text-muted">{{ formatRelative(message.createdAt) }}</span>
+                  </div>
+                  <p class="whitespace-pre-wrap">
+                    {{ message.content.replace('Research trace: ', '') }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </UCard>
+
         <div class="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
           <div class="space-y-4">
             <UCard variant="subtle">
               <template #header>
                 <div class="flex items-center justify-between gap-2">
                   <h3 class="text-sm font-semibold text-highlighted">
-                    Conversation
+                    Full transcript
                   </h3>
                   <span class="text-xs text-muted">
                     {{ currentSession.messages.length }} messages
@@ -328,15 +816,27 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
                 />
 
                 <div class="flex justify-end">
-                  <UButton
-                    color="primary"
-                    icon="i-lucide-send"
-                    :disabled="!canReply"
-                    :loading="isReplying"
-                    @click="onSendReply"
-                  >
-                    Send answer
-                  </UButton>
+                  <div class="flex gap-2">
+                    <UButton
+                      v-if="canRefreshQuestion"
+                      color="neutral"
+                      variant="soft"
+                      icon="i-lucide-rotate-cw"
+                      :loading="isRefreshingQuestion"
+                      @click="onRefreshQuestion"
+                    >
+                      Refresh with agent
+                    </UButton>
+                    <UButton
+                      color="primary"
+                      icon="i-lucide-send"
+                      :disabled="!canReply"
+                      :loading="isReplying"
+                      @click="onSendReply"
+                    >
+                      Send answer
+                    </UButton>
+                  </div>
                 </div>
               </div>
             </UCard>
@@ -352,6 +852,99 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
 
               <p class="text-sm text-toned whitespace-pre-wrap">
                 {{ currentSession.researchSummary || 'Research will appear here after clarification is complete.' }}
+              </p>
+            </UCard>
+
+            <UCard variant="subtle">
+              <template #header>
+                <h3 class="text-sm font-semibold text-highlighted">
+                  Research queries
+                </h3>
+              </template>
+
+              <ul
+                v-if="currentSession.searchQueries?.length"
+                class="space-y-2 text-sm text-toned"
+              >
+                <li
+                  v-for="query in currentSession.searchQueries"
+                  :key="query"
+                  class="rounded-xl border border-default px-3 py-3"
+                >
+                  {{ query }}
+                </li>
+              </ul>
+              <p
+                v-else
+                class="text-sm text-muted"
+              >
+                Search queries will appear after the structured research brief is saved.
+              </p>
+            </UCard>
+
+            <UCard variant="subtle">
+              <template #header>
+                <h3 class="text-sm font-semibold text-highlighted">
+                  Source links
+                </h3>
+              </template>
+
+              <div
+                v-if="currentSession.sourceLinks?.length"
+                class="space-y-2 text-sm text-toned"
+              >
+                <a
+                  v-for="source in currentSession.sourceLinks"
+                  :key="source.url"
+                  :href="source.url"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="block rounded-xl border border-default px-3 py-3 transition hover:border-primary/40"
+                >
+                  <p class="font-medium text-highlighted">
+                    {{ source.title }}
+                  </p>
+                  <p class="mt-1 text-xs text-muted break-all">
+                    {{ source.url }}
+                  </p>
+                  <p class="mt-2 text-sm text-toned">
+                    {{ source.reason }}
+                  </p>
+                </a>
+              </div>
+              <p
+                v-else
+                class="text-sm text-muted"
+              >
+                Source links will appear after the research pass.
+              </p>
+            </UCard>
+
+            <UCard variant="subtle">
+              <template #header>
+                <h3 class="text-sm font-semibold text-highlighted">
+                  Coverage gaps
+                </h3>
+              </template>
+
+              <ul
+                v-if="currentSession.gapAnalysis?.length"
+                class="space-y-2 text-sm text-toned"
+              >
+                <li
+                  v-for="gap in currentSession.gapAnalysis"
+                  :key="gap"
+                  class="flex gap-2"
+                >
+                  <UIcon name="i-lucide-scan-search" class="mt-0.5 size-4 text-primary" />
+                  <span>{{ gap }}</span>
+                </li>
+              </ul>
+              <p
+                v-else
+                class="text-sm text-muted"
+              >
+                Gap analysis will appear after research is complete.
               </p>
             </UCard>
 
@@ -379,7 +972,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
                 v-else
                 class="text-sm text-muted"
               >
-                The outline is generated after clarification.
+                The outline is generated after research.
               </p>
             </UCard>
 
@@ -407,7 +1000,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
                 v-else
                 class="text-sm text-muted"
               >
-                Review feedback will appear here after drafting.
+                Reviewer notes appear after the final draft is generated.
               </p>
             </UCard>
           </div>

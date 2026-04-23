@@ -102,7 +102,15 @@ const postDisplayDate = (post: Post) => {
               variant="soft"
               icon="i-lucide-sparkles"
             >
-              Generate Article
+              Research + Generate
+            </UButton>
+            <UButton
+              to="/admin/research-demo"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-search"
+            >
+              Web Search Demo
             </UButton>
             <UButton
               to="/admin/editor"

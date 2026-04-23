@@ -84,8 +84,8 @@ const posts = computed(() => {
                   <time :datetime="post.displayDate" class="text-slate-500 dark:text-slate-400">
                     {{ post.displayDate }}
                   </time>
-                  <UBadge v-if="post.category" color="primary" variant="outline" size="xs" class="capitalize">
-                    {{ post.category }}
+                  <UBadge v-if="post.tags?.length" color="primary" variant="outline" size="xs" class="capitalize">
+                    {{ post.tags?.[0] }}
                   </UBadge>
                 </div>
                 

@@ -16,18 +16,28 @@ definePageMeta({
           Generate article
         </h1>
         <p class="mt-1 max-w-2xl text-sm text-muted">
-          Start with a topic, answer a few clarifying questions, review the generated draft, and open it in the editor when approved.
+          Use the optional research pipeline when you want a web-backed draft. If you do not need it, open the normal editor and write like usual.
         </p>
       </div>
 
-      <UButton
-        to="/admin"
-        color="neutral"
-        variant="soft"
-        icon="i-lucide-arrow-left"
-      >
-        Back to posts
-      </UButton>
+      <div class="flex gap-2">
+        <UButton
+          to="/admin/editor"
+          color="primary"
+          variant="soft"
+          icon="i-lucide-pencil"
+        >
+          Write manually
+        </UButton>
+        <UButton
+          to="/admin"
+          color="neutral"
+          variant="soft"
+          icon="i-lucide-arrow-left"
+        >
+          Back to posts
+        </UButton>
+      </div>
     </div>
 
     <ClientOnly>
