@@ -13,6 +13,7 @@ import type * as articleGenerationSchema from "../articleGenerationSchema.js";
 import type * as lib_articleGenerationPrompts from "../lib/articleGenerationPrompts.js";
 import type * as lib_articleGenerationSchemas from "../lib/articleGenerationSchemas.js";
 import type * as lib_openrouter from "../lib/openrouter.js";
+import type * as lib_postSlugs from "../lib/postSlugs.js";
 import type * as lib_tavily from "../lib/tavily.js";
 import type * as posts from "../posts.js";
 import type * as tavily from "../tavily.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   "lib/articleGenerationPrompts": typeof lib_articleGenerationPrompts;
   "lib/articleGenerationSchemas": typeof lib_articleGenerationSchemas;
   "lib/openrouter": typeof lib_openrouter;
+  "lib/postSlugs": typeof lib_postSlugs;
   "lib/tavily": typeof lib_tavily;
   posts: typeof posts;
   tavily: typeof tavily;

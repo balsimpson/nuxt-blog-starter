@@ -11,7 +11,7 @@ export default defineNuxtConfig({
   convex: {
     url: process.env.CONVEX_URL,
     manualInit: false,
-    server: false
+    server: true
   },
 
   vite: {

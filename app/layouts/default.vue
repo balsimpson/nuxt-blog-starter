@@ -10,44 +10,41 @@ const isBlogActive = computed(() => route.path.startsWith('/blog'))
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
+  <div class="min-h-screen bg-default">
     <UHeader
       :toggle="false"
       :class="[
-        'fixed top-0 left-0 right-0 z-50 transition-[padding,background-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-b',
-        isScrolled 
-          ? 'py-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-sm' 
-          : 'py-5 bg-transparent border-transparent'
+        'fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-b',
+        isScrolled
+          ? 'py-4 bg-default/80 backdrop-blur-xl border-default'
+          : 'py-6 bg-transparent border-transparent'
       ]"
     >
       <template #left>
-        <NuxtLink 
-          to="/" 
+        <NuxtLink
+          to="/"
           class="group relative flex items-center gap-2 transition-transform duration-500 ease-out active:scale-95"
-          :class="{ 'scale-90': isScrolled }"
+          :class="{ 'scale-95': isScrolled }"
         >
-          <img 
-            src="/bloggr-logo.png" 
-            class="h-10 sm:h-12 w-auto dark:invert transition-all duration-500 ease-in-out" 
+          <img
+            src="/bloggr-logo.png"
+            class="site-logo h-8 w-auto transition-all duration-500 ease-in-out sm:h-9"
             alt="Bloggr Logo"
           >
         </NuxtLink>
       </template>
 
       <template #right>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
+          <SiteThemePicker />
 
-          <UButton
+          <NuxtLink
             to="/blog"
-            label="Blog"
-            icon="i-lucide-book"
-            color="neutral"
-            variant="ghost"
-            :class="[
-              'transition-all duration-300',
-              isBlogActive ? 'text-slate-950 bg-slate-200 dark:text-white dark:bg-slate-800' : ''
-            ]"
-          />
+            class="relative rounded-full px-4 py-2 text-sm transition-colors duration-300"
+            :class="isBlogActive ? 'text-highlighted bg-accented/70' : 'text-muted hover:text-highlighted'"
+          >
+            Journal
+          </NuxtLink>
 
           <UButton
             to="https://github.com/balsimpson/nuxt-blog-starter"
@@ -56,7 +53,7 @@ const isBlogActive = computed(() => route.path.startsWith('/blog'))
             aria-label="GitHub"
             color="neutral"
             variant="ghost"
-            class=" sm:inline-flex hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-300"
+            class="rounded-full transition-all duration-300 hover:bg-accented/50 sm:inline-flex"
           />
         </div>
       </template>
@@ -71,9 +68,8 @@ const isBlogActive = computed(() => route.path.startsWith('/blog'))
 </template>
 
 <style scoped>
-/* Force GPU acceleration for smooth blur transitions */
 header {
-  will-change: padding, background-color, border-color, backdrop-filter;
+  will-change: background-color, border-color, backdrop-filter;
   transform: translateZ(0);
 }
 </style>

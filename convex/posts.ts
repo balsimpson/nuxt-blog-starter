@@ -1,12 +1,6 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
-
-const slugify = (value: string) => value
-  .toLowerCase()
-  .trim()
-  .replace(/\s+/g, '-')
-  .replace(/[^\w-]+/g, '')
-  .replace(/--+/g, '-')
+import { assertPostSlugAvailable } from './lib/postSlugs'
 
 export const getBySlug = query({
   args: {
@@ -63,44 +57,50 @@ export const upsert = mutation({
     originalSource: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     excerpt: v.optional(v.string()),
-    image: v.optional(v.string()),
-    video: v.optional(v.string())
+    images: v.optional(v.array(v.string())),
+    featuredImage: v.optional(v.string()),
+    videos: v.optional(v.array(v.string())),
+    featuredVideo: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const now = Date.now()
-    let existing = null
+    const existing = args.id ? await ctx.db.get(args.id) : null
 
-    if (args.id) {
-      existing = await ctx.db.get(args.id)
-    } else {
-      existing = await ctx.db
-        .query('posts')
-        .withIndex('by_slug', q => q.eq('slug', args.slug))
-        .unique()
+    if (args.id && !existing) {
+      throw new Error('The post could not be found.')
     }
 
+    const slug = await assertPostSlugAvailable(ctx.db, args.slug, existing?._id)
+
     const publishStatus = args.publishStatus || 'draft'
-    let publishedAt = args.publishedAt
+    let publishedAt = args.publishedAt || existing?.publishedAt
+    let originalPublishedAt = args.originalPublishedAt
 
     if (publishStatus === 'published' && !publishedAt) {
       publishedAt = now
     }
 
+    if (publishStatus === 'published' && !originalPublishedAt) {
+      originalPublishedAt = publishedAt
+    }
+
     if (existing) {
       await ctx.db.patch(existing._id, {
-        slug: args.slug,
+        slug,
         title: args.title,
         author: args.author,
         content: args.content,
         contentType: args.contentType,
         publishStatus,
         publishedAt: publishedAt || existing.publishedAt,
-        originalPublishedAt: args.originalPublishedAt,
+        originalPublishedAt,
         originalSource: args.originalSource,
         tags: args.tags,
         excerpt: args.excerpt,
-        image: args.image,
-        video: args.video,
+        images: args.images,
+        featuredImage: args.featuredImage,
+        videos: args.videos,
+        featuredVideo: args.featuredVideo,
         updatedAt: now
       })
 
@@ -108,19 +108,21 @@ export const upsert = mutation({
     }
 
     const postId = await ctx.db.insert('posts', {
-      slug: args.slug,
+      slug,
       title: args.title,
       author: args.author,
       content: args.content,
       contentType: args.contentType,
       publishStatus,
       publishedAt,
-      originalPublishedAt: args.originalPublishedAt,
+      originalPublishedAt,
       originalSource: args.originalSource,
       tags: args.tags,
       excerpt: args.excerpt,
-      image: args.image,
-      video: args.video,
+      images: args.images,
+      featuredImage: args.featuredImage,
+      videos: args.videos,
+      featuredVideo: args.featuredVideo,
       createdAt: now,
       updatedAt: now
     })

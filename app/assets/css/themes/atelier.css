@@ -1,0 +1,104 @@
+:root,
+:root[data-theme='atelier'] {
+  color-scheme: light;
+
+  /* Typography — a high-contrast transitional serif on a geometric sans,
+     distinct from the editorial Fraunces/Inter pairing. */
+  --font-serif: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Warm paper neutrals — a low-chroma clay-tinted gray scale. */
+  --ui-color-neutral-50: oklch(98% 0.006 85);
+  --ui-color-neutral-100: oklch(96.5% 0.008 80);
+  --ui-color-neutral-200: oklch(93% 0.008 75);
+  --ui-color-neutral-300: oklch(88% 0.008 72);
+  --ui-color-neutral-400: oklch(72% 0.01 70);
+  --ui-color-neutral-500: oklch(56% 0.012 68);
+  --ui-color-neutral-600: oklch(45% 0.012 65);
+  --ui-color-neutral-700: oklch(38% 0.011 62);
+  --ui-color-neutral-800: oklch(28% 0.01 58);
+  --ui-color-neutral-900: oklch(22% 0.01 55);
+  --ui-color-neutral-950: oklch(15% 0.008 52);
+
+  /* Terracotta — the single warm accent, used sparingly. */
+  --ui-primary: oklch(46% 0.14 42);
+
+  --ui-text-dimmed: var(--ui-color-neutral-400);
+  --ui-text-muted: var(--ui-color-neutral-500);
+  --ui-text-toned: var(--ui-color-neutral-600);
+  --ui-text: var(--ui-color-neutral-700);
+  --ui-text-highlighted: var(--ui-color-neutral-900);
+  --ui-text-inverted: var(--color-white);
+
+  --ui-bg: oklch(98.5% 0.009 82);
+  --ui-bg-muted: var(--ui-color-neutral-100);
+  --ui-bg-elevated: var(--ui-color-neutral-50);
+  --ui-bg-accented: var(--ui-color-neutral-200);
+  --ui-bg-inverted: var(--ui-color-neutral-900);
+
+  --ui-border: oklch(88% 0.01 72 / 80%);
+  --ui-border-muted: oklch(88% 0.01 72 / 65%);
+  --ui-border-accented: var(--ui-color-neutral-300);
+  --ui-border-inverted: var(--ui-color-neutral-900);
+
+  /* Softer corners than editorial's tight 0.25rem for a warmer surface. */
+  --ui-radius: 0.625rem;
+  --site-logo-filter: none;
+}
+
+:root.dark,
+:root.dark[data-theme='atelier'] {
+  color-scheme: dark;
+
+  /* Warm ink neutrals — a touch of umber so dark mode reads as ink, not zinc. */
+  --font-serif: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --ui-color-neutral-50: oklch(98% 0.005 80);
+  --ui-color-neutral-100: oklch(96% 0.006 75);
+  --ui-color-neutral-200: oklch(91% 0.007 70);
+  --ui-color-neutral-300: oklch(85% 0.008 65);
+  --ui-color-neutral-400: oklch(70% 0.01 62);
+  --ui-color-neutral-500: oklch(55% 0.011 58);
+  --ui-color-neutral-600: oklch(44% 0.011 55);
+  --ui-color-neutral-700: oklch(37% 0.01 52);
+  --ui-color-neutral-800: oklch(27% 0.009 50);
+  --ui-color-neutral-900: oklch(21% 0.008 48);
+  --ui-color-neutral-950: oklch(15% 0.007 46);
+
+  /* Lightened clay so the accent holds on dark paper. */
+  --ui-primary: oklch(72% 0.11 55);
+
+  --ui-text-dimmed: var(--ui-color-neutral-600);
+  --ui-text-muted: var(--ui-color-neutral-500);
+  --ui-text-toned: var(--ui-color-neutral-400);
+  --ui-text: var(--ui-color-neutral-300);
+  --ui-text-highlighted: var(--ui-color-neutral-100);
+  --ui-text-inverted: var(--ui-color-neutral-900);
+
+  --ui-bg: oklch(16.5% 0.008 50);
+  --ui-bg-muted: var(--ui-color-neutral-900);
+  --ui-bg-elevated: var(--ui-color-neutral-900);
+  --ui-bg-accented: var(--ui-color-neutral-800);
+  --ui-bg-inverted: var(--ui-color-neutral-100);
+
+  --ui-border: var(--ui-color-neutral-800);
+  --ui-border-muted: var(--ui-color-neutral-800);
+  --ui-border-accented: var(--ui-color-neutral-700);
+  --ui-border-inverted: var(--ui-color-neutral-100);
+
+  --site-logo-filter: invert(1);
+}
+
+/* Tailwind resolves the @theme font default at build time, so the document
+   body and the .font-* utilities won't follow a runtime var override on
+   their own. Force the atelier faces here — these selectors outrank
+   preflight's html rule and the base .font-* utilities on specificity. */
+:root[data-theme='atelier'] {
+  font-family: var(--font-sans);
+}
+:root[data-theme='atelier'] .font-sans { font-family: var(--font-sans); }
+:root[data-theme='atelier'] .font-serif { font-family: var(--font-serif); }
+:root[data-theme='atelier'] .font-mono { font-family: var(--font-mono); }

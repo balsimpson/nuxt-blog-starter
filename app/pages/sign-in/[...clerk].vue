@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-8">
+  <div class="flex min-h-screen items-center justify-center bg-default px-4 py-8">
     <SignIn
       path="/sign-in"
       routing="path"

@@ -710,7 +710,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
                 <div
                   v-for="message in statusMessages.slice(0, 6)"
                   :key="message._id"
-                  class="rounded-xl border border-default bg-background px-3 py-3"
+                  class="rounded-xl border border-default bg-default px-3 py-3"
                 >
                   <div class="flex items-center justify-between gap-3 text-xs">
                     <span class="font-medium text-highlighted">System</span>
@@ -740,7 +740,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
                 <div
                   v-for="message in researchTraceMessages.slice(-8)"
                   :key="message._id"
-                  class="rounded-xl border border-primary/15 bg-background px-3 py-2 text-sm text-toned"
+                  class="rounded-xl border border-primary/15 bg-default px-3 py-2 text-sm text-toned"
                 >
                   <div class="mb-1 flex items-center justify-between gap-3 text-xs">
                     <span class="font-medium text-highlighted">Trace</span>
@@ -1052,7 +1052,7 @@ const formatRelative = (timestamp: number) => new Date(timestamp).toLocaleString
 
             <USeparator />
 
-            <div class="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm">
+            <div class="prose prose-site prose-sm max-w-none whitespace-pre-wrap text-sm">
               {{ currentSession.draftContent || 'The generated draft will appear here once the workflow has enough context.' }}
             </div>
           </div>

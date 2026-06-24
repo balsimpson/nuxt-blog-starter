@@ -1,50 +1,44 @@
+<script setup lang="ts">
+const year = new Date().getFullYear()
+</script>
+
 <template>
-  <footer class="relative overflow-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
-    <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.18),_transparent_20%)]" />
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(236,72,153,0.18),_transparent_24%)]" />
-      <div class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-50 dark:from-slate-950 to-transparent" />
-    </div>
+  <footer class="border-t border-default bg-default text-highlighted">
+    <div class="mx-auto max-w-3xl px-6 py-16 sm:px-8 sm:py-20">
+      <div class="flex items-baseline justify-between text-[11px] uppercase tracking-[0.24em] text-dimmed">
+        <span>Colophon</span>
+        <span>End of issue</span>
+      </div>
+      <div class="mt-5 border-t border-default" />
 
-    <div class="mx-auto max-w-6xl px-6 py-14 sm:px-8 lg:px-10">
-      <div class="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-xs uppercase tracking-[0.32em] text-warning">Still overkill</p>
-          <h2 class="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-            A clean footer that still feels elevated.
-          </h2>
+      <div class="mt-10 flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+        <div class="max-w-sm">
+          <p class="font-serif text-2xl tracking-tight">Bloggr</p>
+          <p class="mt-2 text-sm leading-relaxed text-muted">
+            A quiet place to write things worth reading.
+          </p>
         </div>
 
-        <div class="flex flex-wrap gap-3">
-          <UButton
-            size="md"
-            color="warning"
-            label="Start writing"
-            icon="i-lucide-arrow-right"
-            trailing-icon
-            class="rounded-full px-6"
-            to="#features"
-          />
-          <UButton
-            size="md"
-            color="neutral"
-            variant="outline"
-            label="View source"
-            icon="i-simple-icons-github"
-            trailing-icon
-            class="rounded-full px-6"
+        <nav class="flex items-center gap-6 text-sm">
+          <NuxtLink
+            to="/blog"
+            class="text-muted underline-offset-4 transition-colors hover:text-highlighted"
+          >
+            Journal
+          </NuxtLink>
+          <a
+            href="https://github.com/balsimpson/nuxt-blog-starter"
             target="_blank"
-            to="https://github.com/balsimpson/nuxt-blog-starter"
-          />
-        </div>
+            class="text-muted underline-offset-4 transition-colors hover:text-highlighted"
+          >
+            GitHub
+          </a>
+        </nav>
       </div>
 
-      <div class="mt-10 flex flex-col gap-4 border-t border-slate-200/60 pt-6 text-sm text-slate-600 dark:border-white/10 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-        <p>© 2026 Nuxt Blog Starter</p>
-        <div class="flex flex-wrap items-center gap-4">
-          <a href="#features" class="transition hover:text-slate-950 dark:hover:text-white">Features</a>
-          <a href="#editor" class="transition hover:text-slate-950 dark:hover:text-white">Editor demo</a>
-        </div>
+      <div class="mt-12 flex flex-col gap-2 border-t border-muted pt-6 text-xs text-dimmed sm:flex-row sm:items-center sm:justify-between">
+        <p>&copy; {{ year }} Nuxt Blog Starter</p>
+        <p class="font-mono uppercase tracking-[0.24em]">Set in Fraunces &amp; Inter</p>
       </div>
     </div>
   </footer>

@@ -25,6 +25,7 @@ import {
   researchResultSchema
 } from './lib/articleGenerationSchemas'
 import { getArticleGenerationModel } from './lib/openrouter'
+import { createUniquePostSlug } from './lib/postSlugs'
 import { searchTavily } from './lib/tavily'
 
 const ARTICLE_AGENT_INSTRUCTIONS = [
@@ -54,13 +55,6 @@ function createArticleAgent() {
     instructions: ARTICLE_AGENT_INSTRUCTIONS
   })
 }
-
-const slugify = (value: string) => value
-  .toLowerCase()
-  .trim()
-  .replace(/\s+/g, '-')
-  .replace(/[^\w-]+/g, '')
-  .replace(/--+/g, '-')
 
 function getClarificationAnswer(messages: Array<{ kind: string, role: string, content: string }>) {
   return messages
@@ -463,7 +457,6 @@ export const approveGenerationSession = mutation({
     }
 
     const now = Date.now()
-    const slugBase = slugify(session.draftTitle) || slugify(session.requestedArticle) || 'generated-article'
     const existingPost = session.linkedPostId
       ? await ctx.db.get(session.linkedPostId)
       : null
@@ -472,7 +465,6 @@ export const approveGenerationSession = mutation({
 
     if (existingPost) {
       await ctx.db.patch(existingPost._id, {
-        slug: slugBase,
         title: session.draftTitle,
         content: session.draftContent,
         contentType: 'draft',
@@ -481,8 +473,13 @@ export const approveGenerationSession = mutation({
         updatedAt: now
       })
     } else {
+      const slug = await createUniquePostSlug(
+        ctx.db,
+        session.draftTitle || session.requestedArticle
+      )
+
       linkedPostId = await ctx.db.insert('posts', {
-        slug: slugBase,
+        slug,
         title: session.draftTitle,
         content: session.draftContent,
         contentType: 'draft',

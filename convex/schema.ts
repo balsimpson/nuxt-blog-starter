@@ -19,8 +19,10 @@ export default defineSchema({
     publishStatus: v.optional(v.string()), // 'draft' | 'published'
     publishedAt: v.optional(v.number()),
     excerpt: v.optional(v.string()),
-    image: v.optional(v.string()),
-    video: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
+    featuredImage: v.optional(v.string()),
+    videos: v.optional(v.array(v.string())),
+    featuredVideo: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     originalPublishedAt: v.optional(v.number()),
     originalSource: v.optional(v.string()),

@@ -20,7 +20,7 @@ type Post = {
 
 const { data: posts, isPending } = useConvexQuery(api.posts.list, {})
 const { mutate: removePost } = useConvexMutation(api.posts.remove)
-
+const clerk = useClerk()
 async function onDeletePost(id: string) {
   if (confirm('Are you sure you want to delete this post?')) {
     await removePost({ id: id as any })
@@ -61,6 +61,12 @@ const stats = computed(() => {
   }
 })
 
+const handleLogout = async () => {
+  if (!confirm('Are you sure you want to log out?')) return
+  await clerk.value?.signOut()
+  await navigateTo('/sign-in')
+}
+
 const postStatus = (post: Post) => isDraft(post) ? 'Draft' : 'Published'
 
 const postStatusColor = (post: Post) => isPublished(post) ? 'primary' : 'neutral'
@@ -80,6 +86,33 @@ const postDisplayDate = (post: Post) => {
 
 <template>
   <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+
+
+        <header class="flex flex-col gap-4 rounded-3xl border border-default bg-muted/30 p-5 sm:flex-row sm:items-end sm:justify-between">
+      <div class="space-y-1.5">
+        <p class="text-[11px] font-medium uppercase tracking-[0.22em] text-dimmed">
+          Admin area
+        </p>
+        <h1 class="text-2xl font-semibold tracking-tight text-highlighted">
+          Welcome back
+        </h1>
+        <p class="max-w-xl text-sm text-muted">
+          Keep the dish catalog up to date, review changes quickly, and sign out when you're done.
+        </p>
+      </div>
+
+      <UButton
+        color="neutral"
+        variant="soft"
+        icon="i-lucide-log-out"
+        class="shrink-0"
+        @click="handleLogout"
+      >
+        Sign out
+      </UButton>
+    </header>
+
+
     <UCard variant="soft" class="overflow-hidden">
       <template #header>
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
