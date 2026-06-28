@@ -55,7 +55,22 @@ TAVILY_API_KEY=your_tavily_api_key
 npx convex dev
 ```
 
-### 4. Run Locally
+### 4. Configure Clerk authentication in Convex
+
+Create a Clerk JWT template named `convex`. Then add these values to the Convex
+deployment under **Settings → Environment Variables**:
+
+| Variable | Value |
+| --- | --- |
+| `CLERK_JWT_ISSUER_DOMAIN` | The Clerk issuer, such as `https://your-instance.clerk.accounts.dev` |
+| `CLERK_SECRET_KEY` | The Clerk secret key for the same instance |
+| `APP_URL` | The absolute app origin, such as `http://localhost:3000` locally or the production origin when deployed |
+
+The secret must be configured in Convex itself. The Nuxt
+`NUXT_CLERK_SECRET_KEY` variable is not automatically available to Convex
+actions.
+
+### 5. Run Locally
 
 ```bash
 npm run dev
@@ -80,14 +95,36 @@ npm run dev
 
 ---
 
-## 🔒 Writing Your First Post
+## 🔒 Bootstrap the first administrator
 
-To start managing your blog:
+The first administrator is the only user bootstrapped from Clerk metadata:
 
-1. **Sign Up**: Go to your deployed app or local environment and create an account.
-2. **Admin Setup**: In your **Clerk Dashboard**, go to **Users**, find your account (e.g., `admin@yourapp.com`), and verify your identity.
-3. **Access Dashboard**: Navigate to `/admin` to access the blog management console.
-4. **Publish**: Use the built-in editor to write, edit, and publish your posts instantly.
+1. In the Clerk Dashboard, open the user who will administer the app.
+2. Add `{ "role": "admin" }` to either public or private metadata.
+3. Sign in with that user and open `/admin`.
+4. The app creates the first active Convex user as an admin.
+
+This bootstrap is accepted only while the Convex `users` table is empty. After
+that, Convex is the sole role source of truth and Clerk metadata cannot grant or
+change application access.
+
+## 👥 Invite and manage users
+
+Administrators can open `/admin/users` to invite an email as a viewer, editor,
+or admin.
+
+- **Viewer**: can read the admin entry archive.
+- **Editor**: can manage entries and use research and generation tools.
+- **Admin**: has editor access and can manage users.
+
+The access record is saved in Convex before Clerk attempts email delivery. The
+recipient can accept the invitation or sign in directly with the same verified
+email; both paths activate the same pending user record. If email delivery
+fails, the assigned access remains saved.
+
+Pending invitations can be resent or revoked. Active users can be disabled and
+restored. Role changes take effect from the Convex record and do not require a
+Clerk metadata or token update.
 
 ---
 
@@ -98,6 +135,7 @@ To start managing your blog:
 | `npm run dev` | Starts development server on `localhost:3000` |
 | `npm run build` | Builds the application for production |
 | `npm run preview` | Locally preview the production build |
+| `npm run test:access` | Runs role and route-policy tests |
 | `npx convex dev` | Starts the Convex development sync |
 
 ---

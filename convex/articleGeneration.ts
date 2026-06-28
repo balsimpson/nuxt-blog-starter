@@ -27,6 +27,7 @@ import {
 import { getArticleGenerationModel } from './lib/openrouter'
 import { createUniquePostSlug } from './lib/postSlugs'
 import { searchTavily } from './lib/tavily'
+import { requireContentEditor } from './users'
 
 const ARTICLE_AGENT_INSTRUCTIONS = [
   'You are a senior editor and article writer.',
@@ -252,6 +253,7 @@ async function withStepRetry<T>(args: {
 export const listGenerationSessions = query({
   args: {},
   handler: async (ctx) => {
+    await requireContentEditor(ctx)
     return await ctx.db
       .query('articleGenerationSessions')
       .withIndex('by_updated_at')
@@ -266,6 +268,7 @@ export const getGenerationSession = query({
     id: v.id('articleGenerationSessions')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.id)
 
     if (!session) {
@@ -293,6 +296,7 @@ export const createGenerationSession = mutation({
     prompt: v.string()
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const now = Date.now()
     const trimmedPrompt = args.prompt.trim()
     const sessionId = await ctx.db.insert('articleGenerationSessions', {
@@ -334,6 +338,7 @@ export const addGenerationAnswer = mutation({
     answer: v.string()
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.sessionId)
 
     if (!session) {
@@ -388,6 +393,7 @@ export const regenerateClarificationQuestion = mutation({
     sessionId: v.id('articleGenerationSessions')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.sessionId)
 
     if (!session) {
@@ -442,6 +448,7 @@ export const approveGenerationSession = mutation({
     sessionId: v.id('articleGenerationSessions')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.sessionId)
 
     if (!session) {
@@ -518,6 +525,7 @@ export const resetGenerationSessionError = mutation({
     sessionId: v.id('articleGenerationSessions')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.sessionId)
 
     if (!session) {
@@ -542,6 +550,7 @@ export const retryGenerationSession = mutation({
     sessionId: v.id('articleGenerationSessions')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.sessionId)
 
     if (!session) {
@@ -597,6 +606,7 @@ export const deleteGenerationSession = mutation({
     sessionId: v.id('articleGenerationSessions')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const session = await ctx.db.get(args.sessionId)
 
     if (!session) {

@@ -1,16 +1,30 @@
-// Define the routes you want to protect with `createRouteMatcher()`
+import { watch } from 'vue'
+
 const isProtectedRoute = createRouteMatcher(['/admin(.*)'])
+const isSignInRoute = createRouteMatcher(['/sign-in(.*)'])
 
-export default defineNuxtRouteMiddleware((to) => {
-  // Use the `useAuth()` composable to access the `isSignedIn` property
-  const { isSignedIn } = useAuth()
+export default defineNuxtRouteMiddleware(async (to) => {
+  const { isLoaded, isSignedIn } = useAuth()
 
-  // Check if the user is not signed in and is trying to access a protected route
-  // If so, redirect them to the sign-in page
+  if (import.meta.client && !isLoaded.value) {
+    await new Promise<void>((resolve) => {
+      const timeout = window.setTimeout(() => {
+        stop()
+        resolve()
+      }, 10000)
+
+      const stop = watch(isLoaded, (loaded) => {
+        if (!loaded) return
+        window.clearTimeout(timeout)
+        stop()
+        resolve()
+      })
+    })
+  }
+
   if (!isSignedIn.value && isProtectedRoute(to)) {
     return navigateTo('/sign-in')
-  } else if (isSignedIn.value && to.path === '/sign-in') {
-    // If the user is signed in and tries to access the sign-in page, redirect them to the admin dashboard
+  } else if (isSignedIn.value && isSignInRoute(to)) {
     return navigateTo('/admin')
   }
 })

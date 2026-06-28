@@ -1,9 +1,11 @@
 import { v } from 'convex/values'
 import { mutation } from './_generated/server'
+import { requireContentEditor } from './users'
 
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireContentEditor(ctx)
     return await ctx.storage.generateUploadUrl()
   }
 })
@@ -16,6 +18,7 @@ export const saveImage = mutation({
     size: v.optional(v.number())
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const url = await ctx.storage.getUrl(args.storageId)
 
     if (!url) {

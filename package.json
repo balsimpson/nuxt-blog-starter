@@ -7,6 +7,7 @@
     "dev": "nuxt dev",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "test:access": "node --experimental-strip-types --test test/adminAccess.test.ts",
     "test:slugs": "node --experimental-strip-types --test test/postSlugs.test.ts",
     "typecheck": "nuxt typecheck"
   },

@@ -1,6 +1,10 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { assertPostSlugAvailable } from './lib/postSlugs'
+import {
+  requireActiveUser,
+  requireContentEditor
+} from './users'
 
 export const getBySlug = query({
   args: {
@@ -19,6 +23,7 @@ export const getById = query({
     id: v.id('posts')
   },
   handler: async (ctx, args) => {
+    await requireActiveUser(ctx)
     return await ctx.db.get(args.id)
   }
 })
@@ -26,6 +31,7 @@ export const getById = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await requireActiveUser(ctx)
     return await ctx.db
       .query('posts')
       .collect()
@@ -63,6 +69,7 @@ export const upsert = mutation({
     featuredVideo: v.optional(v.string())
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     const now = Date.now()
     const existing = args.id ? await ctx.db.get(args.id) : null
 
@@ -136,6 +143,7 @@ export const remove = mutation({
     id: v.id('posts')
   },
   handler: async (ctx, args) => {
+    await requireContentEditor(ctx)
     await ctx.db.delete(args.id)
   }
 })

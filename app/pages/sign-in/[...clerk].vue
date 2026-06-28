@@ -3,6 +3,7 @@
     <SignIn
       path="/sign-in"
       routing="path"
+      force-redirect-url="/admin"
     />
   </div>
 </template>

@@ -49,7 +49,11 @@ const selectedSession = ref<GenerationSession | null>(null)
 const selectedSessionLoading = ref(false)
 const selectedSessionError = ref<string | null>(null)
 
-const { data: sessions, isPending: isSessionsPending } = useConvexQuery(api.articleGeneration.listGenerationSessions)
+const { data: sessions, isPending: isSessionsPending } = useConvexQuery(
+  api.articleGeneration.listGenerationSessions,
+  {},
+  { server: false }
+)
 const activeSession = computed(() => selectedSession.value as GenerationSession | null)
 const isSessionPending = computed(() => Boolean(selectedSessionId.value) && selectedSessionLoading.value && !activeSession.value)
 
