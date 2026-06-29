@@ -11,7 +11,7 @@ export const siteThemes = [
 
 export type SiteTheme = typeof siteThemes[number]['value']
 
-export const DEFAULT_SITE_THEME: SiteTheme = 'atelier'
+export const DEFAULT_SITE_THEME: SiteTheme = 'editorial'
 
 export function isSiteTheme(value: unknown): value is SiteTheme {
   return siteThemes.some(theme => theme.value === value)

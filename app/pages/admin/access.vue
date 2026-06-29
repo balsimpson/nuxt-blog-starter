@@ -1,21 +1,22 @@
 <template>
-  <main class="min-h-screen bg-default px-6 py-20 sm:px-8">
-    <section class="mx-auto max-w-xl border-y border-default py-12">
-      <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-dimmed">
+  <main class="min-h-screen bg-default px-6 pt-32 pb-20 sm:px-8 sm:pt-40">
+    <section class="mx-auto max-w-3xl border-y border-default py-12 sm:py-16">
+      <p class="font-mono text-[11px] uppercase tracking-[0.24em] text-dimmed">
         Admin access
       </p>
-      <h1 class="mt-4 font-serif text-4xl tracking-tight text-highlighted">
+      <h1 class="mt-4 font-serif text-4xl leading-[1.08] tracking-[-0.02em] text-highlighted sm:text-5xl">
         {{ title }}
       </h1>
-      <p class="mt-4 text-[15px] leading-relaxed text-muted">
+      <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted">
         {{ message }}
       </p>
 
       <div class="mt-8 flex flex-wrap gap-2">
         <UButton
           color="neutral"
-          variant="soft"
+          variant="ghost"
           icon="i-lucide-refresh-cw"
+          class="rounded-full"
           @click="reload"
         >
           Check access again
@@ -24,6 +25,7 @@
           color="neutral"
           variant="ghost"
           icon="i-lucide-log-out"
+          class="rounded-full"
           @click="signOut"
         >
           Sign out

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { DropdownMenuItem, NavigationMenuItem } from '@nuxt/ui'
+import { computed } from 'vue'
+import { useWindowScroll } from '@vueuse/core'
+import type { DropdownMenuItem } from '@nuxt/ui'
 
 definePageMeta({
   ssr: false
@@ -10,29 +12,20 @@ const clerk = useClerk()
 const { user } = useUser()
 const { access, visiblePages } = useAdminAccess()
 
-const pageIcons: Record<string, string> = {
-  '/admin': 'i-lucide-file-text',
-  '/admin/editor': 'i-lucide-pencil',
-  '/admin/users': 'i-lucide-users'
-}
+const { y } = useWindowScroll()
+const isScrolled = computed(() => y.value > 20)
 
-const navItems = computed<NavigationMenuItem[]>(() =>
+const navItems = computed(() =>
   visiblePages.value.map(page => ({
     label: page.label,
-    icon: pageIcons[page.path] ?? 'i-lucide-circle',
     to: page.path,
     active: route.path === page.path
   }))
 )
 
-const secondaryItems = computed<NavigationMenuItem[]>(() => [
-  {
-    label: 'View journal',
-    icon: 'i-lucide-external-link',
-    to: '/blog',
-    target: '_blank'
-  } satisfies NavigationMenuItem
-])
+const currentPage = computed(() =>
+  visiblePages.value.find(page => page.path === route.path) || visiblePages.value[0]
+)
 
 const userLabel = computed(() =>
   user.value?.fullName
@@ -66,132 +59,88 @@ async function signOut() {
 </script>
 
 <template>
-  <UDashboardGroup storage="cookie" storage-key="bloggr-admin-sidebar">
-    <UDashboardSidebar
-      collapsible
-      resizable
-      :min-size="16"
-      :default-size="18"
-      :max-size="26"
-      :ui="{ footer: 'border-t border-default' }"
+  <div class="min-h-screen bg-default text-default">
+    <header
+      :class="[
+        'fixed top-0 left-0 right-0 z-50 border-b transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]',
+        isScrolled
+          ? 'border-default bg-default/80 py-4 backdrop-blur-xl'
+          : 'border-transparent bg-transparent py-5'
+      ]"
     >
-      <template #header="{ collapsed }">
-        <NuxtLink
-          to="/admin"
-          class="flex items-center gap-2.5"
-        >
-          <img
-            src="/bloggr-logo.png"
-            class="h-7 w-auto shrink-0"
-            alt="Bloggr"
+      <div class="mx-auto flex max-w-5xl flex-col gap-4 px-6 sm:px-8">
+        <div class="flex items-start justify-between gap-6">
+          <NuxtLink
+            to="/admin"
+            class="flex items-center gap-3"
           >
-          <span
-            v-if="!collapsed"
-            class="font-serif text-lg tracking-tight text-highlighted"
-          >
-            Admin
-          </span>
-        </NuxtLink>
-      </template>
-
-      <template #default="{ collapsed }">
-        <UButton
-          :label="collapsed ? undefined : 'Sign out'"
-          icon="i-lucide-log-out"
-          color="neutral"
-          variant="outline"
-          block
-          :square="collapsed"
-          class="lg:hidden"
-          @click="signOut"
-        />
-
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="navItems"
-          orientation="vertical"
-          tooltip
-        />
-
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="secondaryItems"
-          orientation="vertical"
-          class="mt-auto"
-          tooltip
-        />
-      </template>
-
-      <template #footer="{ collapsed }">
-        <UDropdownMenu
-          v-if="!collapsed"
-          :items="userMenuItems"
-          :content="{ align: 'start' }"
-          class="w-full"
-        >
-          <UButton
-            :avatar="userAvatar"
-            :label="userLabel"
-            :trailing-icon="roleLabel ? undefined : 'i-lucide-chevrons-up-down'"
-            color="neutral"
-            variant="ghost"
-            class="w-full"
-          >
-            <template v-if="roleLabel" #trailing>
-              <UBadge color="neutral" variant="subtle" size="sm">
-                {{ roleLabel }}
-              </UBadge>
-            </template>
-          </UButton>
-        </UDropdownMenu>
-
-        <UButton
-          v-else
-          :avatar="userAvatar"
-          color="neutral"
-          variant="ghost"
-          block
-          @click="signOut"
-        />
-      </template>
-    </UDashboardSidebar>
-
-    <UDashboardPanel id="admin">
-      <template #header>
-        <UDashboardNavbar :ui="{ root: 'lg:hidden' }">
-          <template #leading>
-            <UDashboardSidebarCollapse />
-          </template>
-
-          <template #title>
-            <NuxtLink
-              to="/admin"
-              class="flex items-center gap-2"
+            <img
+              src="/bloggr-logo.png"
+              class="h-7 w-auto shrink-0"
+              alt="Bloggr"
             >
-              <img
-                src="/bloggr-logo.png"
-                class="h-6 w-auto"
-                alt="Bloggr"
-              >
-              <span class="font-serif text-base tracking-tight">Admin</span>
+            <div class="min-w-0">
+              <p class="font-mono text-[11px] uppercase tracking-[0.24em] text-dimmed">
+                Admin area
+              </p>
+              <h1 class="font-serif text-lg tracking-tight text-highlighted">
+                {{ currentPage?.label || 'Dashboard' }}
+              </h1>
+            </div>
+          </NuxtLink>
+
+          <div class="flex items-center gap-2 sm:gap-3">
+            <span
+              v-if="roleLabel"
+              class="hidden font-mono text-[11px] uppercase tracking-[0.16em] text-dimmed sm:inline"
+            >
+              {{ roleLabel }}
+            </span>
+
+            <UDropdownMenu
+              :items="userMenuItems"
+              :content="{ align: 'end' }"
+            >
+              <UButton
+                :avatar="userAvatar"
+                :label="userLabel"
+                trailing-icon="i-lucide-chevrons-up-down"
+                color="neutral"
+                variant="ghost"
+                class="rounded-full"
+              />
+            </UDropdownMenu>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-default pt-3">
+          <nav class="flex flex-wrap gap-x-5 gap-y-2">
+            <NuxtLink
+              v-for="item in navItems"
+              :key="item.to"
+              :to="item.to"
+              class="font-mono text-[11px] uppercase tracking-[0.16em] transition-colors"
+              :class="item.active ? 'text-highlighted' : 'text-dimmed hover:text-highlighted'"
+            >
+              {{ item.label }}
             </NuxtLink>
-          </template>
+          </nav>
 
-          <template #right>
-            <UButton
-              icon="i-lucide-log-out"
-              color="neutral"
-              variant="ghost"
-              aria-label="Sign out"
-              @click="signOut"
-            />
-          </template>
-        </UDashboardNavbar>
-      </template>
+          <NuxtLink
+            to="/"
+            target="_blank"
+            class="font-mono text-[11px] uppercase tracking-[0.16em] text-dimmed transition-colors hover:text-highlighted"
+          >
+            View journal
+          </NuxtLink>
+        </div>
+      </div>
+    </header>
 
-      <template #body>
+    <UMain class="relative pt-32 sm:pt-40">
+      <div class="mx-auto max-w-5xl px-6 pb-16 sm:px-8">
         <slot />
-      </template>
-    </UDashboardPanel>
-  </UDashboardGroup>
+      </div>
+    </UMain>
+  </div>
 </template>

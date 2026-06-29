@@ -1,20 +1,56 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
-import { assertPostSlugAvailable } from './lib/postSlugs'
+import {
+  assertPostSlugAvailable,
+  createUniquePostSlug
+} from './lib/postSlugs'
 import {
   requireActiveUser,
   requireContentEditor
 } from './users'
 
-export const getBySlug = query({
+export const getPublishedBySlug = query({
   args: {
     slug: v.string()
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const post = await ctx.db
       .query('posts')
       .withIndex('by_slug', q => q.eq('slug', args.slug))
       .unique()
+
+    if (!post || post.publishStatus !== 'published') {
+      return {
+        post: null,
+        related: []
+      }
+    }
+
+    const relatedCandidates = await ctx.db
+      .query('posts')
+      .withIndex('by_publish_status_and_original_published_at', q =>
+        q.eq('publishStatus', 'published')
+      )
+      .order('desc')
+      .take(4)
+
+    const related = relatedCandidates
+      .filter(candidate => candidate._id !== post._id)
+      .slice(0, 2)
+      .map(candidate => ({
+        _id: candidate._id,
+        _creationTime: candidate._creationTime,
+        slug: candidate.slug,
+        title: candidate.title,
+        excerpt: candidate.excerpt,
+        publishedAt: candidate.publishedAt,
+        originalPublishedAt: candidate.originalPublishedAt
+      }))
+
+    return {
+      post,
+      related
+    }
   }
 })
 
@@ -43,9 +79,11 @@ export const listPublished = query({
   handler: async (ctx) => {
     return await ctx.db
       .query('posts')
-      .withIndex('by_slug') // Optional, just to use an index if needed, but filtering is needed
-      .filter(q => q.eq(q.field('publishStatus'), 'published'))
-      .collect()
+      .withIndex('by_publish_status_and_original_published_at', q =>
+        q.eq('publishStatus', 'published')
+      )
+      .order('desc')
+      .take(9)
   }
 })
 
@@ -53,6 +91,7 @@ export const upsert = mutation({
   args: {
     id: v.optional(v.id('posts')),
     slug: v.string(),
+    slugIsCustomized: v.optional(v.boolean()),
     title: v.optional(v.string()),
     author: v.optional(v.string()),
     content: v.string(),
@@ -77,7 +116,9 @@ export const upsert = mutation({
       throw new Error('The post could not be found.')
     }
 
-    const slug = await assertPostSlugAvailable(ctx.db, args.slug, existing?._id)
+    const slug = existing || args.slugIsCustomized
+      ? await assertPostSlugAvailable(ctx.db, args.slug, existing?._id)
+      : await createUniquePostSlug(ctx.db, args.slug)
 
     const publishStatus = args.publishStatus || 'draft'
     let publishedAt = args.publishedAt || existing?.publishedAt

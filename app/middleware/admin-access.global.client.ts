@@ -5,6 +5,26 @@ import {
   getAdminLandingPath
 } from '#shared/admin-access'
 
+function waitForClerkAuth(timeoutMs = 10000) {
+  const { isLoaded } = useAuth()
+
+  if (isLoaded.value) return Promise.resolve()
+
+  return new Promise<void>((resolve) => {
+    const timeout = window.setTimeout(() => {
+      stop()
+      resolve()
+    }, timeoutMs)
+
+    const stop = watch(isLoaded, (loaded) => {
+      if (!loaded) return
+      window.clearTimeout(timeout)
+      stop()
+      resolve()
+    })
+  })
+}
+
 function waitForAccessState(timeoutMs = 15000) {
   const accessSession = useAccessSession()
 
@@ -33,10 +53,22 @@ function waitForAccessState(timeoutMs = 15000) {
 export default defineNuxtRouteMiddleware(async (to) => {
   if (!to.path.startsWith('/admin')) return
 
-  const { isLoaded, isSignedIn } = useAuth()
-  if (!isLoaded.value || !isSignedIn.value) return
+  const { isSignedIn, userId } = useAuth()
+  await waitForClerkAuth()
+  if (!isSignedIn.value || !userId.value) return
 
   const accessSession = useAccessSession()
+
+  if (
+    accessSession.value.status === 'unauthenticated'
+    || (
+      accessSession.value.status === 'active'
+      && accessSession.value.user.clerkUserId !== userId.value
+    )
+  ) {
+    accessSession.value = { status: 'loading' }
+  }
+
   await waitForAccessState()
 
   if (accessSession.value.status === 'active') {

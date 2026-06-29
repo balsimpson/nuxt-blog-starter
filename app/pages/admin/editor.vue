@@ -28,7 +28,7 @@ async function onDeleted() {
 </script>
 
 <template>
-  <main class="min-h-screen w-full bg-default">
+  <div class="min-h-screen w-full bg-default">
     <AppEditor
       :post-id="postId"
       back-to="/admin"
@@ -36,5 +36,5 @@ async function onDeleted() {
       @saved="onSaved"
       @deleted="onDeleted"
     />
-  </main>
+  </div>
 </template>

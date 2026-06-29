@@ -6,6 +6,7 @@ type ActiveAccessUser = {
   role: UserRole
   allowedPages: string[]
   status: 'pending' | 'active' | 'disabled'
+  clerkUserId?: string
   firstName?: string
   lastName?: string
 }

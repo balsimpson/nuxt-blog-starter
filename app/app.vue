@@ -1,3 +1,18 @@
+<template>
+  <UApp>
+    <NuxtLoadingIndicator
+      color="#65451d"
+      error-color="#5c2529"
+      :height="2"
+      :throttle="100"
+    />
+
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+  </UApp>
+</template>
+
 <script setup>
 const colorMode = useColorMode()
 useSiteTheme()
@@ -25,8 +40,8 @@ useHead({
   }
 })
 
-const title = 'Nuxt Starter Template'
-const description = 'A production-ready starter template powered by Nuxt UI. Build beautiful, accessible, and performant applications in minutes, not hours.'
+const title = 'Bloggr'
+const description = 'A quiet journal of essays, images, notes, and quotes.'
 
 useSeoMeta({
   title,
@@ -37,11 +52,3 @@ useSeoMeta({
   twitterCard: 'summary_large_image'
 })
 </script>
-
-<template>
-  <UApp>
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
-  </UApp>
-</template>

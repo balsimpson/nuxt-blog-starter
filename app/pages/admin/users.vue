@@ -1,208 +1,3 @@
-<template>
-  <main class="min-h-screen bg-default px-6 py-12 sm:px-8">
-    <div class="mx-auto w-full max-w-5xl">
-      <header class="flex flex-col gap-5 border-b border-default pb-8 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-dimmed">
-            Admin area
-          </p>
-          <h1 class="mt-3 font-serif text-4xl tracking-tight text-highlighted">
-            Users
-          </h1>
-          <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
-            Invite people, assign their access level, and manage active accounts.
-          </p>
-        </div>
-
-        <UButton
-          to="/admin"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-arrow-left"
-        >
-          Back to posts
-        </UButton>
-      </header>
-
-      <section class="border-b border-default py-8">
-        <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_18rem]">
-          <form
-            class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end"
-            @submit.prevent="inviteUser"
-          >
-            <UFormField
-              label="Email address"
-              required
-            >
-              <UInput
-                v-model="inviteForm.email"
-                type="email"
-                autocomplete="email"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField
-              label="Role"
-              required
-            >
-              <USelect
-                v-model="inviteForm.role"
-                :items="roleOptions"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UButton
-              type="submit"
-              icon="i-lucide-send"
-              :loading="isInviting"
-              :disabled="!inviteForm.email.trim()"
-            >
-              Send invite
-            </UButton>
-          </form>
-
-          <div class="space-y-2 text-sm leading-relaxed text-muted">
-            <p>
-              {{ selectedRoleDescription }}
-            </p>
-            <p>
-              Testing without an inbox? Invite an address such as
-              <span class="font-mono text-xs text-highlighted">user+clerk_test@example.com</span>
-              and use verification code
-              <span class="font-mono text-xs text-highlighted">424242</span>.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="py-8">
-        <div class="mb-4 flex items-center justify-between gap-4">
-          <h2 class="font-serif text-2xl tracking-tight text-highlighted">
-            Access list
-          </h2>
-          <span class="font-mono text-xs tabular-nums text-dimmed">
-            {{ users?.length || 0 }} {{ users?.length === 1 ? 'user' : 'users' }}
-          </span>
-        </div>
-
-        <div
-          v-if="isPending"
-          class="divide-y divide-default border-y border-default"
-        >
-          <div
-            v-for="index in 3"
-            :key="index"
-            class="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_10rem_8rem_auto] sm:items-center"
-          >
-            <USkeleton class="h-5 w-48" />
-            <USkeleton class="h-8 w-32" />
-            <USkeleton class="h-5 w-20" />
-            <USkeleton class="h-8 w-24" />
-          </div>
-        </div>
-
-        <div
-          v-else-if="users?.length"
-          class="divide-y divide-default border-y border-default"
-        >
-          <div
-            v-for="user in users"
-            :key="user._id"
-            class="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_10rem_8rem_auto] sm:items-center"
-          >
-            <div class="min-w-0">
-              <p class="truncate font-medium text-highlighted">
-                {{ displayName(user) }}
-              </p>
-              <p class="mt-1 truncate text-sm text-muted">
-                {{ user.email }}
-              </p>
-            </div>
-
-            <USelect
-              :model-value="roleDrafts[user._id] || user.role"
-              :items="roleOptions"
-              :disabled="busyUsers.has(user._id)"
-              @update:model-value="value => changeRole(user, value)"
-            />
-
-            <UBadge
-              :color="statusColor(user.status)"
-              variant="soft"
-              class="w-fit capitalize"
-            >
-              {{ user.status }}
-            </UBadge>
-
-            <div class="flex flex-wrap justify-start gap-1 sm:justify-end">
-              <template v-if="user.status === 'pending'">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-send"
-                  :loading="busyUsers.has(user._id)"
-                  @click="resendInvitation(user._id)"
-                >
-                  Resend
-                </UButton>
-                <UButton
-                  color="error"
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-x"
-                  :loading="busyUsers.has(user._id)"
-                  @click="revokeInvitation(user._id)"
-                >
-                  Revoke
-                </UButton>
-              </template>
-
-              <UButton
-                v-else-if="user.status === 'active'"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                icon="i-lucide-user-x"
-                :loading="busyUsers.has(user._id)"
-                @click="setDisabled(user._id, true)"
-              >
-                Disable
-              </UButton>
-
-              <UButton
-                v-else
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                icon="i-lucide-user-check"
-                :loading="busyUsers.has(user._id)"
-                @click="setDisabled(user._id, false)"
-              >
-                Restore
-              </UButton>
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-else
-          class="border-y border-default py-12 text-center"
-        >
-          <p class="font-serif text-2xl italic text-dimmed">
-            No users yet
-          </p>
-          <p class="mt-2 text-sm text-muted">
-            Send the first invitation using the form above.
-          </p>
-        </div>
-      </section>
-    </div>
-  </main>
-</template>
-
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
@@ -262,10 +57,10 @@ function displayName(user: ManagedUser) {
   return name || user.email
 }
 
-function statusColor(status: ManagedUser['status']) {
-  if (status === 'active') return 'success'
-  if (status === 'disabled') return 'error'
-  return 'neutral'
+function statusTone(status: ManagedUser['status']) {
+  if (status === 'active') return 'text-highlighted'
+  if (status === 'disabled') return 'text-dimmed'
+  return 'text-muted'
 }
 
 function errorMessage(error: unknown) {
@@ -400,3 +195,213 @@ definePageMeta({
   ssr: false
 })
 </script>
+
+<template>
+  <section class="space-y-10">
+    <header class="border-b border-default pb-8">
+      <p class="font-mono text-[11px] uppercase tracking-[0.24em] text-dimmed">
+        Admin area
+      </p>
+      <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 class="font-serif text-4xl leading-[1.08] tracking-[-0.02em] text-highlighted sm:text-5xl lg:text-6xl">
+            Users
+          </h1>
+          <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted">
+            Invite people, assign their access level, and manage active accounts.
+          </p>
+        </div>
+
+        <UButton
+          to="/admin"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-arrow-left"
+          class="rounded-full"
+        >
+          Back to posts
+        </UButton>
+      </div>
+    </header>
+
+    <section class="border-b border-default py-8">
+      <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <form
+          class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end"
+          @submit.prevent="inviteUser"
+        >
+          <UFormField
+            label="Email address"
+            required
+          >
+            <UInput
+              v-model="inviteForm.email"
+              type="email"
+              autocomplete="email"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            label="Role"
+            required
+          >
+            <USelect
+              v-model="inviteForm.role"
+              :items="roleOptions"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UButton
+            type="submit"
+            icon="i-lucide-send"
+            :loading="isInviting"
+            :disabled="!inviteForm.email.trim()"
+            class="rounded-full"
+          >
+            Send invite
+          </UButton>
+        </form>
+
+        <div class="space-y-3 text-sm leading-relaxed text-muted">
+          <p>
+            {{ selectedRoleDescription }}
+          </p>
+          <p>
+            Testing without an inbox? Invite an address such as
+            <span class="font-mono text-[11px] tracking-[0.08em] text-highlighted">user+clerk_test@example.com</span>
+            and use verification code
+            <span class="font-mono text-[11px] tracking-[0.08em] text-highlighted">424242</span>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-8">
+      <div class="mb-4 flex items-center justify-between gap-4">
+        <h2 class="font-serif text-2xl tracking-tight text-highlighted">
+          Access list
+        </h2>
+        <span class="font-mono text-[11px] uppercase tracking-[0.16em] tabular-nums text-dimmed">
+          {{ users?.length || 0 }} {{ users?.length === 1 ? 'user' : 'users' }}
+        </span>
+      </div>
+
+      <div
+        v-if="isPending"
+        class="divide-y divide-default border-y border-default"
+      >
+        <div
+          v-for="index in 3"
+          :key="index"
+          class="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_10rem_8rem_auto] sm:items-center"
+        >
+          <USkeleton class="h-5 w-48" />
+          <USkeleton class="h-8 w-32" />
+          <USkeleton class="h-5 w-20" />
+          <USkeleton class="h-8 w-24" />
+        </div>
+      </div>
+
+      <div
+        v-else-if="users?.length"
+        class="divide-y divide-default border-y border-default"
+      >
+        <div
+          v-for="user in users"
+          :key="user._id"
+          class="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_10rem_8rem_auto] sm:items-center"
+        >
+          <div class="min-w-0">
+            <p class="truncate font-medium text-highlighted">
+              {{ displayName(user) }}
+            </p>
+            <p class="mt-1 truncate text-sm text-muted">
+              {{ user.email }}
+            </p>
+          </div>
+
+          <USelect
+            :model-value="roleDrafts[user._id] || user.role"
+            :items="roleOptions"
+            :disabled="busyUsers.has(user._id)"
+            @update:model-value="value => changeRole(user, value)"
+          />
+
+          <span
+            class="font-mono text-[11px] uppercase tracking-[0.16em]"
+            :class="statusTone(user.status)"
+          >
+            {{ user.status }}
+          </span>
+
+          <div class="flex flex-wrap justify-start gap-1 sm:justify-end">
+            <template v-if="user.status === 'pending'">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-send"
+                :loading="busyUsers.has(user._id)"
+                class="rounded-full"
+                @click="resendInvitation(user._id)"
+              >
+                Resend
+              </UButton>
+              <UButton
+                color="error"
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-x"
+                :loading="busyUsers.has(user._id)"
+                class="rounded-full"
+                @click="revokeInvitation(user._id)"
+              >
+                Revoke
+              </UButton>
+            </template>
+
+            <UButton
+              v-else-if="user.status === 'active'"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-user-x"
+              :loading="busyUsers.has(user._id)"
+              class="rounded-full"
+              @click="setDisabled(user._id, true)"
+            >
+              Disable
+            </UButton>
+
+            <UButton
+              v-else
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-user-check"
+              :loading="busyUsers.has(user._id)"
+              class="rounded-full"
+              @click="setDisabled(user._id, false)"
+            >
+              Restore
+            </UButton>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else
+        class="border-y border-default py-12 text-center"
+      >
+        <p class="font-serif text-2xl italic text-dimmed">
+          No users yet
+        </p>
+        <p class="mt-2 text-sm text-muted">
+          Send the first invitation using the form above.
+        </p>
+      </div>
+    </section>
+  </section>
+</template>

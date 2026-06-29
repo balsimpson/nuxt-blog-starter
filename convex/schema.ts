@@ -52,4 +52,5 @@ export default defineSchema({
   })
     .index('by_slug', ['slug'])
     .index('by_author', ['author'])
+    .index('by_publish_status_and_original_published_at', ['publishStatus', 'originalPublishedAt'])
 })

@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { computed, markRaw, ref, shallowRef, watch } from 'vue'
 import { watchDebounced } from '@vueuse/core'
+import { ConvexError } from 'convex/values'
 import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
-import type { EditorCustomHandlers, EditorToolbarItem } from '@nuxt/ui'
+import type { DropdownMenuItem, EditorCustomHandlers, EditorToolbarItem } from '@nuxt/ui'
 import type { Editor } from '@tiptap/vue-3'
 import type { Editor as CoreEditor } from '@tiptap/core'
 import { Youtube } from '@tiptap/extension-youtube'
 import Placeholder from '@tiptap/extension-placeholder'
 import { EditorImagePaste } from '~/utils/EditorImagePasteExtension'
+import { LinkPreview } from '~/utils/LinkPreviewExtension'
 import { extractPostImages } from '~/utils/postImages'
 import { extractPostVideos, getYoutubeThumbnail } from '~/utils/postVideos'
 
 type PostStatus = 'draft' | 'published'
-type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 const props = withDefaults(defineProps<{
   postId?: Id<'posts'>
@@ -45,6 +47,9 @@ const saveError = ref<string | null>(null)
 const lastSavedAt = ref<number | null>(null)
 const hydratedId = ref<Id<'posts'> | null>(null)
 const isSettingsOpen = ref(false)
+const isDeleteModalOpen = ref(false)
+const isSyncingPost = ref(false)
+const editVersion = ref(0)
 
 const excerpt = ref('')
 const featuredImage = ref('')
@@ -52,6 +57,31 @@ const featuredVideo = ref('')
 const tags = ref<string[]>([])
 const originalSource = ref('')
 const originalPublishedAt = ref<number | null>(null)
+
+const autosaveSources = [
+  title,
+  slug,
+  content,
+  excerpt,
+  author,
+  tags,
+  originalSource,
+  originalPublishedAt,
+  featuredImage,
+  featuredVideo
+]
+
+watch(
+  autosaveSources,
+  () => {
+    if (props.demo || isSyncingPost.value) return
+
+    editVersion.value += 1
+    saveState.value = 'dirty'
+    saveError.value = null
+  },
+  { flush: 'sync' }
+)
 
 const imageUploadPicker = ref<{ inputRef?: HTMLInputElement } | null>(null)
 const selectedImageFiles = ref<File[] | null>(null)
@@ -175,13 +205,6 @@ const originalPublishedAtDate = computed({
   }
 })
 
-const tagsString = computed({
-  get: () => tags.value.join(', '),
-  set: (val: string) => {
-    tags.value = val.split(',').map(s => s.trim()).filter(Boolean)
-  }
-})
-
 const contentImages = computed(() => extractPostImages(content.value))
 const contentVideos = computed(() => extractPostVideos(content.value))
 
@@ -206,6 +229,7 @@ const extensions = [
     }
   })),
   markRaw(Youtube.configure({ inline: false, controls: true })),
+  markRaw(LinkPreview),
   Placeholder.configure({
     placeholder: 'Start writing your next post...',
   }),
@@ -266,7 +290,7 @@ const bubbleMenuItems: EditorToolbarItem[] = [
 const getBubbleMenuContainer = () => document.body
 
 const { mutate: upsertPost, isPending: isSaving } = useConvexMutation(api.posts.upsert)
-const { mutate: removePost } = useConvexMutation(api.posts.remove)
+const { mutate: removePost, isPending: isDeleting } = useConvexMutation(api.posts.remove)
 const convex = useConvexClient()
 
 const slugify = (text: string) => {
@@ -296,21 +320,10 @@ function onSlugInput(value: string) {
 
 if (!props.demo) {
   watchDebounced(
-    [
-      title,
-      slug,
-      content,
-      excerpt,
-      author,
-      tags,
-      originalSource,
-      originalPublishedAt,
-      featuredImage,
-      featuredVideo
-    ],
+    autosaveSources,
     () => {
-      if (title.value || content.value) {
-        savePost(status.value, true)
+      if (saveState.value === 'dirty' && (title.value || content.value)) {
+        void savePost(status.value)
       }
     },
     { debounce: 2000, maxWait: 5000 }
@@ -330,6 +343,8 @@ if (!props.demo) {
 }
 
 async function loadPost(id: Id<'posts'>) {
+  isSyncingPost.value = true
+
   try {
     const post = await convex.query(api.posts.getById, { id })
     if (post) {
@@ -354,19 +369,45 @@ async function loadPost(id: Id<'posts'>) {
     }
   } catch (e) {
     console.error('Failed to load post:', e)
+  } finally {
+    isSyncingPost.value = false
   }
 }
 
-const pageTitle = computed(() => (currentPostId.value ? 'Edit post' : 'Create post'))
+const pageTitle = computed(() => (currentPostId.value ? 'Edit entry' : 'New entry'))
+const entryStatusLabel = computed(() => status.value === 'published' ? 'Published' : 'Draft')
+const deleteModalDescription = computed(() => {
+  const entryName = title.value.trim()
+    ? `“${title.value.trim()}”`
+    : 'this untitled entry'
 
-async function savePost(nextStatus: PostStatus, isAutoSave = false) {
+  return `This permanently deletes ${entryName}. This action cannot be undone.`
+})
+const moreActions = computed<DropdownMenuItem[][]>(() => [[
+  {
+    label: 'Delete entry',
+    icon: 'i-lucide-trash-2',
+    color: 'error',
+    onSelect: () => {
+      isDeleteModalOpen.value = true
+    }
+  }
+]])
+
+function formatSavedTime(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+async function savePost(nextStatus: PostStatus) {
   if (props.demo) {
     return
   }
 
-  if (!isAutoSave) {
-    saveState.value = 'saving'
-  }
+  const savingVersion = editVersion.value
+  saveState.value = 'saving'
   saveError.value = null
 
   try {
@@ -374,6 +415,7 @@ async function savePost(nextStatus: PostStatus, isAutoSave = false) {
     const payload = {
       id: hydratedId.value || undefined,
       slug: currentSlug,
+      slugIsCustomized: isSlugCustomized.value,
       title: title.value.trim() || undefined,
       author: author.value || undefined,
       content: content.value,
@@ -391,60 +433,85 @@ async function savePost(nextStatus: PostStatus, isAutoSave = false) {
 
     const saved = await upsertPost(payload)
     if (saved) {
-      slug.value = saved.slug
-      status.value = (saved.contentType as PostStatus)
-      lastSavedAt.value = saved.updatedAt
-      hydratedId.value = saved._id
-      originalPublishedAt.value = saved.originalPublishedAt || saved.publishedAt || null
-      saveState.value = 'saved'
+      isSyncingPost.value = true
+
+      try {
+        slug.value = saved.slug
+        isSlugCustomized.value = true
+        status.value = (saved.contentType as PostStatus)
+        lastSavedAt.value = saved.updatedAt
+        hydratedId.value = saved._id
+        originalPublishedAt.value = saved.originalPublishedAt || saved.publishedAt || null
+      } finally {
+        isSyncingPost.value = false
+      }
+
+      saveState.value = editVersion.value === savingVersion ? 'saved' : 'dirty'
       emit('saved', saved._id)
     }
   } catch (error) {
-    saveError.value = error instanceof Error ? error.message : 'Unable to save the post.'
+    if (
+      error instanceof ConvexError
+      && typeof error.data === 'object'
+      && error.data !== null
+      && 'message' in error.data
+      && typeof error.data.message === 'string'
+    ) {
+      saveError.value = error.data.message
+
+      if ('code' in error.data && error.data.code === 'POST_SLUG_TAKEN') {
+        isSettingsOpen.value = true
+      }
+    } else {
+      saveError.value = error instanceof Error ? error.message : 'Unable to save the post.'
+    }
+
     saveState.value = 'error'
   }
 }
 
-async function onDeletePost() {
-  if (props.demo) {
-    createNewPost()
-    return
-  }
-
+async function confirmDeletePost() {
   const id = currentPostId.value
-  if (id && confirm('Are you sure you want to delete this post?')) {
-    try {
-      await removePost({ id })
-      createNewPost()
-      emit('deleted', id)
-    } catch (e) {
-      console.error('Failed to delete post:', e)
-      saveError.value = 'Failed to delete post.'
-      saveState.value = 'error'
-    }
+  if (!id) return
+
+  try {
+    await removePost({ id })
+    isDeleteModalOpen.value = false
+    createNewPost()
+    emit('deleted', id)
+  } catch (e) {
+    console.error('Failed to delete post:', e)
+    saveError.value = 'The entry could not be deleted.'
+    saveState.value = 'error'
   }
 }
 
 function createNewPost() {
   if (!hydratedId.value && !title.value && !content.value) return
 
-  title.value = ''
-  slug.value = ''
-  isSlugCustomized.value = false
-  author.value = ''
-  content.value = ''
-  status.value = 'draft'
-  saveState.value = 'idle'
-  saveError.value = null
-  lastSavedAt.value = null
-  hydratedId.value = null
+  isSyncingPost.value = true
 
-  excerpt.value = ''
-  featuredImage.value = ''
-  featuredVideo.value = ''
-  tags.value = []
-  originalSource.value = ''
-  originalPublishedAt.value = null
+  try {
+    title.value = ''
+    slug.value = ''
+    isSlugCustomized.value = false
+    author.value = ''
+    content.value = ''
+    status.value = 'draft'
+    saveState.value = 'idle'
+    saveError.value = null
+    lastSavedAt.value = null
+    hydratedId.value = null
+
+    excerpt.value = ''
+    featuredImage.value = ''
+    featuredVideo.value = ''
+    tags.value = []
+    originalSource.value = ''
+    originalPublishedAt.value = null
+  } finally {
+    isSyncingPost.value = false
+  }
 }
 </script>
 
@@ -469,8 +536,8 @@ function createNewPost() {
     >
       <div class="sticky top-0 z-20 border-b border-muted bg-default/90 backdrop-blur min-w-0">
         <div class="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-3 p-3 sm:p-4">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between min-w-0">
-            <div v-if="!props.demo" class="flex items-center gap-4 min-w-0">
+          <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div v-if="!props.demo" class="flex min-w-0 items-start gap-3">
               <UButton
                 v-if="props.backTo"
                 :to="props.backTo"
@@ -478,32 +545,59 @@ function createNewPost() {
                 variant="ghost"
                 icon="i-lucide-arrow-left"
                 aria-label="Back"
+                class="mt-0.5 shrink-0"
               />
 
-              <div>
-                <h2 class="text-lg font-semibold text-highlighted">{{ pageTitle }}</h2>
-                <p class="text-sm text-muted">Update the post and save it as a draft or publish it immediately.</p>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h2 class="text-lg font-semibold text-highlighted">{{ pageTitle }}</h2>
+                  <span class="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+                    <span
+                      class="size-1.5 rounded-full"
+                      :class="status === 'published' ? 'bg-highlighted' : 'border border-muted'"
+                    />
+                    {{ entryStatusLabel }}
+                  </span>
+                </div>
+
+                <div
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  class="mt-0.5 flex min-h-5 items-center gap-1.5 text-xs"
+                  :class="saveState === 'error' ? 'text-error' : 'text-muted'"
+                >
+                  <template v-if="saveState === 'error'">
+                    <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" />
+                    <span>Autosave failed</span>
+                  </template>
+                  <template v-else-if="saveState === 'saving' || isSaving">
+                    <UIcon name="i-lucide-loader-circle" class="size-3.5 shrink-0 animate-spin" />
+                    <span>Saving changes…</span>
+                  </template>
+                  <template v-else-if="saveState === 'dirty'">
+                    <UIcon name="i-lucide-clock-3" class="size-3.5 shrink-0" />
+                    <span>Unsaved changes · saving shortly</span>
+                  </template>
+                  <template v-else-if="lastSavedAt">
+                    <UIcon name="i-lucide-cloud-check" class="size-3.5 shrink-0" />
+                    <span>All changes saved at {{ formatSavedTime(lastSavedAt) }}</span>
+                  </template>
+                  <template v-else>
+                    <UIcon name="i-lucide-cloud" class="size-3.5 shrink-0" />
+                    <span>Changes save automatically</span>
+                  </template>
+                </div>
               </div>
             </div>
 
-            <div v-if="!props.demo" class="flex flex-wrap items-center gap-2 min-w-0">
-              <div class="hidden items-center gap-1.5 text-xs sm:flex">
-                <template v-if="saveState === 'saved' && lastSavedAt">
-                  <UIcon name="i-lucide-check-circle-2" class="text-success h-3.5 w-3.5" />
-                  <span class="text-muted">Saved at {{ new Date(lastSavedAt).toLocaleTimeString() }}</span>
-                </template>
-                <template v-else-if="saveState === 'saving' || isSaving">
-                  <UIcon name="i-lucide-refresh-cw" class="h-3.5 w-3.5 animate-spin" />
-                  <span class="text-muted">Saving...</span>
-                </template>
-              </div>
-
+            <div v-if="!props.demo" class="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:justify-end">
               <UButton
                 v-if="props.showSettings"
                 color="neutral"
-                variant="soft"
+                variant="outline"
                 size="sm"
-                icon="i-lucide-settings"
+                icon="i-lucide-sliders-horizontal"
                 @click="isSettingsOpen = true"
               >
                 Settings
@@ -512,21 +606,13 @@ function createNewPost() {
               <template v-if="status === 'published'">
                 <UButton
                   color="neutral"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   icon="i-lucide-eye-off"
+                  :loading="isSaving"
                   @click="savePost('draft')"
                 >
                   Unpublish
-                </UButton>
-                <UButton
-                  color="primary"
-                  size="sm"
-                  :loading="isSaving"
-                  icon="i-lucide-check"
-                  @click="savePost('published')"
-                >
-                  Update
                 </UButton>
               </template>
               <template v-else>
@@ -541,22 +627,27 @@ function createNewPost() {
                 </UButton>
               </template>
 
-              <UButton
-                color="error"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-trash-2"
-                @click="onDeletePost"
+              <UDropdownMenu
+                v-if="currentPostId"
+                :items="moreActions"
+                :content="{ align: 'end' }"
               >
-                {{ props.demo ? 'Reset' : 'Delete' }}
-              </UButton>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-ellipsis"
+                  aria-label="More entry actions"
+                  :disabled="isSaving || isDeleting"
+                />
+              </UDropdownMenu>
             </div>
           </div>
 
           <div class="grid w-full min-w-0">
             <UTextarea
               v-model="title"
-              placeholder="Post title..."
+              placeholder="Entry title"
               variant="none"
               class="pt-4 text-3xl font-bold text-highlighted sm:text-4xl md:text-5xl"
               :rows="1"
@@ -604,15 +695,40 @@ function createNewPost() {
       {{ saveError }}
     </p>
 
+    <UModal
+      v-model:open="isDeleteModalOpen"
+      title="Delete this entry?"
+      :description="deleteModalDescription"
+      :dismissible="!isDeleting"
+      :ui="{ footer: 'justify-end' }"
+    >
+      <template #footer>
+        <UButton
+          label="Cancel"
+          color="neutral"
+          variant="outline"
+          :disabled="isDeleting"
+          @click="isDeleteModalOpen = false"
+        />
+        <UButton
+          label="Delete entry"
+          color="error"
+          icon="i-lucide-trash-2"
+          :loading="isDeleting"
+          @click="confirmDeletePost"
+        />
+      </template>
+    </UModal>
+
     <USlideover
       v-if="props.showSettings && !props.demo"
       v-model:open="isSettingsOpen"
-      title="Post Settings"
-      description="Manage post metadata and optional fields."
+      title="Entry settings"
+      description="Metadata and publishing details save automatically."
     >
       <template #body>
         <div class="flex flex-col gap-6 p-4">
-          <UFormField name="slug" label="Slug" help="The URL-friendly version of the title.">
+          <UFormField name="slug" label="Slug" help="Used in the post URL. It must be unique.">
             <UInput
               :model-value="slug"
               placeholder="post-slug"
@@ -629,8 +745,14 @@ function createNewPost() {
             <UInput v-model="author" placeholder="Author name" class="w-full" />
           </UFormField>
 
-          <UFormField name="tags" label="Tags" help="Comma-separated tags.">
-            <UInput v-model="tagsString" placeholder="tech, news, etc." class="w-full" />
+          <UFormField name="tags" label="Tags" help="Press Enter or type a comma to add each tag.">
+            <UInputTags
+              v-model="tags"
+              delimiter=","
+              size="sm"
+              placeholder="Add a tag"
+              class="w-full"
+            />
           </UFormField>
 
           <UFormField name="originalSource" label="Original Source URL" help="Link to the original article if cross-posted.">
@@ -735,7 +857,40 @@ function createNewPost() {
         </div>
       </template>
       <template #footer>
-        <UButton color="neutral" variant="ghost" @click="isSettingsOpen = false">Close</UButton>
+        <div class="flex w-full items-center justify-between gap-3">
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            class="flex min-h-5 min-w-0 items-center gap-1.5 text-xs"
+            :class="saveState === 'error' ? 'text-error' : 'text-muted'"
+          >
+            <template v-if="saveState === 'error'">
+              <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" />
+              <span>Autosave failed</span>
+            </template>
+            <template v-else-if="saveState === 'saving' || isSaving">
+              <UIcon name="i-lucide-loader-circle" class="size-3.5 shrink-0 animate-spin" />
+              <span>Saving changes…</span>
+            </template>
+            <template v-else-if="saveState === 'dirty'">
+              <UIcon name="i-lucide-clock-3" class="size-3.5 shrink-0" />
+              <span>Unsaved changes · saving shortly</span>
+            </template>
+            <template v-else-if="lastSavedAt">
+              <UIcon name="i-lucide-cloud-check" class="size-3.5 shrink-0" />
+              <span>All changes saved at {{ formatSavedTime(lastSavedAt) }}</span>
+            </template>
+            <template v-else>
+              <UIcon name="i-lucide-cloud" class="size-3.5 shrink-0" />
+              <span>Changes save automatically</span>
+            </template>
+          </div>
+
+          <UButton color="neutral" variant="ghost" class="shrink-0" @click="isSettingsOpen = false">
+            Close
+          </UButton>
+        </div>
       </template>
     </USlideover>
   </div>

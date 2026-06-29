@@ -5,17 +5,22 @@ export default defineNuxtPlugin(() => {
   const convex = useConvexClient()
   const auth = useAuth()
   const accessSession = useAccessSession()
-  let authConfigured = false
+  let configuredUserId: string | null = null
+  let syncingUserId: string | null = null
+  let latestSyncGeneration = 0
   let syncPromise: Promise<void> | null = null
 
-  async function reconcileAccess() {
-    if (syncPromise) return await syncPromise
+  async function reconcileAccess(userId: string) {
+    if (syncPromise && syncingUserId === userId) return await syncPromise
 
-    syncPromise = (async () => {
+    const syncGeneration = ++latestSyncGeneration
+    const currentSync = (async () => {
+      if (configuredUserId !== userId) return
       accessSession.value = { status: 'syncing' }
 
       try {
         const result = await convex.action(api.usersSync.syncCurrentUser, {})
+        if (configuredUserId !== userId) return
 
         if (result.kind !== 'active') {
           accessSession.value = {
@@ -25,6 +30,7 @@ export default defineNuxtPlugin(() => {
         }
 
         const current = await convex.query(api.users.current, {})
+        if (configuredUserId !== userId) return
 
         if (current.kind === 'active') {
           accessSession.value = {
@@ -38,6 +44,8 @@ export default defineNuxtPlugin(() => {
           status: current.kind === 'unlinked' ? 'not_invited' : current.kind
         }
       } catch (error) {
+        if (configuredUserId !== userId) return
+
         accessSession.value = {
           status: 'error',
           message: error instanceof Error
@@ -45,27 +53,32 @@ export default defineNuxtPlugin(() => {
             : 'Access could not be checked.'
         }
       } finally {
-        syncPromise = null
+        if (latestSyncGeneration === syncGeneration) {
+          syncPromise = null
+          syncingUserId = null
+        }
       }
     })()
 
-    await syncPromise
+    syncingUserId = userId
+    syncPromise = currentSync
+    await currentSync
   }
 
   watch(
-    [auth.isLoaded, auth.isSignedIn],
-    ([isLoaded, isSignedIn]) => {
+    [auth.isLoaded, auth.isSignedIn, auth.userId],
+    ([isLoaded, isSignedIn, userId]) => {
       if (!isLoaded) return
 
-      if (!isSignedIn) {
-        authConfigured = false
+      if (!isSignedIn || !userId) {
+        configuredUserId = null
         convex.setAuth(async () => null)
         accessSession.value = { status: 'unauthenticated' }
         return
       }
 
-      if (authConfigured) return
-      authConfigured = true
+      if (configuredUserId === userId) return
+      configuredUserId = userId
       accessSession.value = { status: 'loading' }
 
       convex.setAuth(
@@ -74,8 +87,8 @@ export default defineNuxtPlugin(() => {
           skipCache: true
         }),
         (isAuthenticated) => {
-          if (isAuthenticated) {
-            void reconcileAccess()
+          if (isAuthenticated && configuredUserId === userId) {
+            void reconcileAccess(userId)
           }
         }
       )

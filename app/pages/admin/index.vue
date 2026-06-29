@@ -1,193 +1,3 @@
-<template>
-  <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-
-
-        <header class="flex flex-col gap-4 rounded-3xl border border-default bg-muted/30 p-5 sm:flex-row sm:items-end sm:justify-between">
-      <div class="space-y-1.5">
-        <p class="text-[11px] font-medium uppercase tracking-[0.22em] text-dimmed">
-          Admin area
-        </p>
-        <h1 class="text-2xl font-semibold tracking-tight text-highlighted">
-          Welcome back
-        </h1>
-        <p class="max-w-xl text-sm text-muted">
-          Review the journal, manage access, and keep publishing work moving.
-        </p>
-      </div>
-
-      <div class="flex shrink-0 gap-2">
-        <UButton
-          v-if="canManageUsers"
-          to="/admin/users"
-          color="neutral"
-          variant="soft"
-          icon="i-lucide-users"
-        >
-          Users
-        </UButton>
-        <UButton
-          color="neutral"
-          variant="soft"
-          icon="i-lucide-log-out"
-          @click="handleLogout"
-        >
-          Sign out
-        </UButton>
-      </div>
-    </header>
-
-
-    <section class="border-y border-default py-6">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p class="text-sm font-medium text-muted">
-            Journal admin
-          </p>
-          <h2 class="font-serif text-2xl tracking-tight text-highlighted">
-            Entries
-          </h2>
-          <p class="mt-1 text-sm text-muted">
-            Browse saved entries or open the editor to create and update content.
-          </p>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <UButton
-            v-if="canEditContent"
-            to="/admin/editor"
-            color="primary"
-            icon="i-lucide-plus"
-          >
-            Add entry
-          </UButton>
-        </div>
-      </div>
-
-      <div class="mt-6 grid grid-cols-3 divide-x divide-default border-y border-default">
-        <div class="py-4 pr-4">
-          <p class="text-sm text-muted">
-            Total entries
-          </p>
-          <p class="mt-2 text-2xl font-semibold">
-            {{ stats.total }}
-          </p>
-        </div>
-        <div class="px-4 py-4">
-          <p class="text-sm text-muted">
-            Drafts
-          </p>
-          <p class="mt-2 text-2xl font-semibold">
-            {{ stats.drafts }}
-          </p>
-        </div>
-        <div class="py-4 pl-4">
-          <p class="text-sm text-muted">
-            Published
-          </p>
-          <p class="mt-2 text-2xl font-semibold">
-            {{ stats.published }}
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <UCard>
-      <template #header>
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-base font-semibold">
-              Entry management
-            </h2>
-            <p class="text-sm text-muted">
-              Manage published entries and drafts.
-            </p>
-          </div>
-          <UTabs
-            v-model="selectedTab"
-            :items="items"
-            class="w-full sm:w-auto"
-          />
-        </div>
-      </template>
-
-      <div
-        v-if="filteredPosts.length"
-        class="divide-y divide-default"
-      >
-        <NuxtLink
-          v-for="post in filteredPosts"
-          :key="post._id"
-          :to="canEditContent ? `/admin/editor?id=${post._id}` : undefined"
-          class="flex items-center justify-between gap-4 px-1 py-4 transition hover:opacity-80"
-        >
-          <div class="min-w-0 text-left">
-            <div class="flex items-center gap-2">
-              <p class="truncate font-medium text-highlighted">{{ post.title || post.slug }}</p>
-              <UBadge
-                :color="postStatusColor(post)"
-                variant="soft"
-                size="sm"
-                class="capitalize"
-              >
-                {{ postStatus(post) }}
-              </UBadge>
-            </div>
-            <p class="mt-1 truncate text-sm text-muted">/{{ post.slug }}</p>
-
-            <div class="text-xs text-muted pt-2">
-              <p>{{ postDisplayDate(post).date }} {{ postDisplayDate(post).time }}</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3">
-
-            <div class="flex items-center gap-1 border-l border-muted pl-3">
-              <UButton
-                v-if="canEditContent"
-                icon="i-lucide-pencil"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click.prevent
-              />
-              <UButton
-                v-if="canEditContent"
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click.stop.prevent="onDeletePost(post._id)"
-              />
-            </div>
-          </div>
-        </NuxtLink>
-      </div>
-
-      <div
-        v-else
-        class="flex flex-col items-center justify-center gap-2 py-14 text-center text-muted"
-      >
-        <UIcon
-          name="i-lucide-file-text"
-          class="size-10"
-        />
-        <p class="text-sm">
-          No {{ selectedTab === 'all' ? 'entries' : selectedTab + ' entries' }} found.
-        </p>
-        <UButton
-          v-if="selectedTab === 'all' && canEditContent"
-          to="/admin/editor"
-          color="primary"
-          icon="i-lucide-plus"
-          class="mt-2"
-        >
-          Add your first entry
-        </UButton>
-      </div>
-    </UCard>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '~~/convex/_generated/api'
@@ -209,8 +19,7 @@ const { data: posts } = useConvexQuery(
   { server: false }
 )
 const { mutate: removePost } = useConvexMutation(api.posts.remove)
-const { canEditContent, canManageUsers } = useAdminAccess()
-const clerk = useClerk()
+const { canEditContent } = useAdminAccess()
 
 async function onDeletePost(id: string) {
   if (confirm('Are you sure you want to delete this post?')) {
@@ -252,14 +61,9 @@ const stats = computed(() => {
   }
 })
 
-const handleLogout = async () => {
-  if (!confirm('Are you sure you want to log out?')) return
-  await clerk.value?.signOut({ redirectUrl: '/sign-in' })
-}
+const postStatus = (post: Post) => (isDraft(post) ? 'Draft' : 'Published')
 
-const postStatus = (post: Post) => isDraft(post) ? 'Draft' : 'Published'
-
-const postStatusColor = (post: Post) => isPublished(post) ? 'primary' : 'neutral'
+const postStatusTone = (post: Post) => (isPublished(post) ? 'text-highlighted' : 'text-dimmed')
 
 const postDisplayDate = (post: Post) => {
   const date = post.publishedAt || post.updatedAt
@@ -278,3 +82,180 @@ definePageMeta({
   ssr: false
 })
 </script>
+
+<template>
+  <section class="space-y-10">
+    <header class="border-b border-default pb-8">
+      <p class="font-mono text-[11px] uppercase tracking-[0.24em] text-dimmed">
+        Admin area
+      </p>
+
+      <div class="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="max-w-2xl">
+          <h1 class="font-serif text-4xl leading-[1.08] tracking-[-0.02em] text-highlighted sm:text-5xl lg:text-6xl">
+            Welcome back
+          </h1>
+          <p class="mt-4 text-[15px] leading-relaxed text-muted">
+            Review entries, manage access, and keep publishing work moving.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <section class="border-b border-default py-8">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="font-mono text-[11px] uppercase tracking-[0.24em] text-dimmed">
+            Journal admin
+          </p>
+          <h2 class="mt-3 font-serif text-2xl tracking-tight text-highlighted">
+            Entries
+          </h2>
+          <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
+            Browse saved entries or open the editor to create and update content.
+          </p>
+        </div>
+
+        <UButton
+          v-if="canEditContent"
+          to="/admin/editor"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-plus"
+          class="rounded-full"
+        >
+          Add entry
+        </UButton>
+      </div>
+
+      <div class="mt-8 grid grid-cols-1 divide-y divide-default border-y border-default sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div class="py-5 pr-4">
+          <p class="font-mono text-[11px] uppercase tracking-[0.16em] text-dimmed">
+            Total entries
+          </p>
+          <p class="mt-3 font-serif text-3xl tracking-tight text-highlighted">
+            {{ stats.total }}
+          </p>
+        </div>
+        <div class="py-5 px-4">
+          <p class="font-mono text-[11px] uppercase tracking-[0.16em] text-dimmed">
+            Drafts
+          </p>
+          <p class="mt-3 font-serif text-3xl tracking-tight text-highlighted">
+            {{ stats.drafts }}
+          </p>
+        </div>
+        <div class="py-5 pl-4">
+          <p class="font-mono text-[11px] uppercase tracking-[0.16em] text-dimmed">
+            Published
+          </p>
+          <p class="mt-3 font-serif text-3xl tracking-tight text-highlighted">
+            {{ stats.published }}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-b border-default py-8">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="font-serif text-2xl tracking-tight text-highlighted">
+            Entry management
+          </h2>
+          <p class="mt-2 text-[15px] leading-relaxed text-muted">
+            Manage published entries and drafts.
+          </p>
+        </div>
+
+        <UTabs
+          v-model="selectedTab"
+          :items="items"
+          class="w-full sm:w-auto"
+        />
+      </div>
+
+      <div
+        v-if="filteredPosts.length"
+        class="mt-8 divide-y divide-default border-y border-default"
+      >
+        <div
+          v-for="post in filteredPosts"
+          :key="post._id"
+          class="grid gap-4 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+        >
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p class="truncate font-medium text-highlighted">
+                {{ post.title || post.slug }}
+              </p>
+              <span
+                :class="['font-mono text-[11px] uppercase tracking-[0.16em]', postStatusTone(post)]"
+              >
+                {{ postStatus(post) }}
+              </span>
+            </div>
+
+            <p class="mt-1 truncate text-sm text-muted">
+              /{{ post.slug }}
+            </p>
+
+            <p class="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-dimmed tabular-nums">
+              {{ postDisplayDate(post).date }} {{ postDisplayDate(post).time }}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-1 sm:justify-end">
+            <UButton
+              v-if="canEditContent"
+              :to="`/admin/editor?id=${post._id}`"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-pencil"
+              class="rounded-full"
+            >
+              Edit
+            </UButton>
+            <UButton
+              v-if="canEditContent"
+              color="error"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-trash-2"
+              class="rounded-full"
+              @click="onDeletePost(post._id)"
+            >
+              Delete
+            </UButton>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else
+        class="flex flex-col items-center justify-center gap-2 py-14 text-center text-muted"
+      >
+        <UIcon
+          name="i-lucide-file-text"
+          class="size-10"
+        />
+        <p class="font-serif text-2xl italic text-dimmed">
+          No {{ selectedTab === 'all' ? 'entries' : selectedTab + ' entries' }} found.
+        </p>
+        <p class="text-sm text-muted">
+          Create the first entry or switch tabs to inspect drafts and published work.
+        </p>
+        <UButton
+          v-if="selectedTab === 'all' && canEditContent"
+          to="/admin/editor"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-plus"
+          class="mt-2 rounded-full"
+        >
+          Add your first entry
+        </UButton>
+      </div>
+    </section>
+  </section>
+</template>

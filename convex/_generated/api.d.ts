@@ -12,6 +12,7 @@ import type * as adminUsers from "../adminUsers.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_clerk from "../lib/clerk.js";
 import type * as lib_postSlugs from "../lib/postSlugs.js";
+import type * as linkPreview from "../linkPreview.js";
 import type * as posts from "../posts.js";
 import type * as uploads from "../uploads.js";
 import type * as users from "../users.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   "lib/access": typeof lib_access;
   "lib/clerk": typeof lib_clerk;
   "lib/postSlugs": typeof lib_postSlugs;
+  linkPreview: typeof linkPreview;
   posts: typeof posts;
   uploads: typeof uploads;
   users: typeof users;
