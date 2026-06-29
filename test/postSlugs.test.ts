@@ -4,7 +4,6 @@ import type { Id } from '../convex/_generated/dataModel.ts'
 import type { MutationCtx } from '../convex/_generated/server.ts'
 import {
   assertPostSlugAvailable,
-  createUniquePostSlug,
   normalizePostSlug
 } from '../convex/lib/postSlugs.ts'
 
@@ -42,13 +41,4 @@ test('allows an existing post to retain its own slug', async () => {
   const db = createDatabase([{ _id: postId, slug: 'existing-post' }])
 
   assert.equal(await assertPostSlugAvailable(db, 'Existing Post', postId), 'existing-post')
-})
-
-test('adds a stable suffix for generated drafts with colliding titles', async () => {
-  const db = createDatabase([
-    { _id: 'post-1' as Id<'posts'>, slug: 'generated-post' },
-    { _id: 'post-2' as Id<'posts'>, slug: 'generated-post-2' }
-  ])
-
-  assert.equal(await createUniquePostSlug(db, 'Generated Post'), 'generated-post-3')
 })

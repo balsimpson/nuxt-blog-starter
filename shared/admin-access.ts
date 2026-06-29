@@ -14,16 +14,6 @@ export const ADMIN_PAGE_DEFS = [
     roles: ['editor', 'admin'] as UserRole[]
   },
   {
-    label: 'Generate',
-    path: '/admin/generate',
-    roles: ['editor', 'admin'] as UserRole[]
-  },
-  {
-    label: 'Research',
-    path: '/admin/research-demo',
-    roles: ['editor', 'admin'] as UserRole[]
-  },
-  {
     label: 'Users',
     path: '/admin/users',
     roles: ['admin'] as UserRole[]

@@ -54,24 +54,6 @@
         <div class="flex flex-wrap gap-2">
           <UButton
             v-if="canEditContent"
-            to="/admin/generate"
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-sparkles"
-          >
-            Research + Generate
-          </UButton>
-          <UButton
-            v-if="canEditContent"
-            to="/admin/research-demo"
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-search"
-          >
-            Web Search Demo
-          </UButton>
-          <UButton
-            v-if="canEditContent"
             to="/admin/editor"
             color="primary"
             icon="i-lucide-plus"
@@ -292,7 +274,7 @@ const postDisplayDate = (post: Post) => {
 }
 
 definePageMeta({
-  layout: false,
+  layout: 'admin',
   ssr: false
 })
 </script>

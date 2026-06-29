@@ -226,7 +226,7 @@ const roleOptions = [
 
 const roleDescriptions: Record<UserRole, string> = {
   viewer: 'Viewers can read the post archive but cannot create, edit, or delete content.',
-  editor: 'Editors can manage posts and use the research and generation tools.',
+  editor: 'Editors can create, edit, publish, and delete posts.',
   admin: 'Admins have full content access and can invite or manage other users.'
 }
 
@@ -396,7 +396,7 @@ async function setDisabled(userId: Id<'users'>, disabled: boolean) {
 }
 
 definePageMeta({
-  layout: false,
+  layout: 'admin',
   ssr: false
 })
 </script>

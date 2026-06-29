@@ -40,16 +40,3 @@ export async function assertPostSlugAvailable(
 
   return slug
 }
-
-export async function createUniquePostSlug(db: PostsDatabase, requestedSlug: string) {
-  const baseSlug = normalizePostSlug(requestedSlug) || 'generated-article'
-  let slug = baseSlug
-  let suffix = 2
-
-  while ((await getPostsWithSlug(db, slug)).length > 0) {
-    slug = `${baseSlug}-${suffix}`
-    suffix += 1
-  }
-
-  return slug
-}

@@ -2,7 +2,7 @@
 import type { Id } from '~~/convex/_generated/dataModel'
 
 definePageMeta({
-  layout: false,
+  layout: 'admin',
   ssr: false
 })
 

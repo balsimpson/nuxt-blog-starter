@@ -1,6 +1,5 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { articleGenerationTables } from './articleGenerationSchema'
 import { roleValidator, userStatusValidator } from './lib/access'
 
 export default defineSchema({
@@ -32,7 +31,6 @@ export default defineSchema({
     contentType: v.optional(v.string()),
     size: v.optional(v.number())
   }).index('by_storage_id', ['storageId']),
-  ...articleGenerationTables,
   posts: defineTable({
     slug: v.string(),
     title: v.optional(v.string()),
