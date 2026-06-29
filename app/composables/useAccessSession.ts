@@ -1,4 +1,4 @@
-import type { UserRole } from '../../shared/admin-access'
+import type { UserRole } from '#shared/admin-access'
 
 type ActiveAccessUser = {
   _id: string

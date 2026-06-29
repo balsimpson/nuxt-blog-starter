@@ -3,7 +3,7 @@ import { api } from '~~/convex/_generated/api'
 import {
   ADMIN_PAGE_DEFS,
   canAccessAdminPath
-} from '../../shared/admin-access'
+} from '#shared/admin-access'
 
 export function useAdminAccess() {
   const accessSession = useAccessSession()

@@ -6,12 +6,12 @@ Audited on 23 June 2026 against the current working tree, `design.md`, the proje
 
 The app uses the main Nuxt conventions correctly: Nuxt 4's `app/` directory, file-based pages, layouts, global route middleware, auto-imported components/composables, `UApp`, Nuxt UI controls, Tailwind, and generated Convex types. The current code also passes `npm run typecheck` and `npm run build`.
 
-It is not yet safe or efficient enough to call production-ready, and it is not free of redundant code. The most urgent problem is the security boundary: `/admin` is hidden behind Clerk in the Nuxt router, but the Convex functions that read drafts, modify posts, upload files, run searches, and generate articles do not authenticate or authorize callers. The largest performance issues are client-only public content, unbounded/full-document queries, and shipping the rich editor on the public homepage.
+It is not yet safe or efficient enough to call production-ready, and it is not free of redundant code. The most urgent problem is the security boundary: `/admin` is hidden behind Clerk in the Nuxt router, but the Convex functions that read drafts, modify posts, and upload files do not authenticate or authorize callers. The largest performance issues are client-only public content, unbounded/full-document queries, and shipping the rich editor on the public homepage.
 
 ## What is already working well
 
 - The directory structure follows Nuxt 4 conventions and keeps routes, layouts, middleware, components, composables, and utilities in their expected locations.
-- Public and admin routes are visibly separated, and the admin-only pages intentionally opt out of SSR where a browser-only editor/workspace makes sense.
+- Public and admin routes are visibly separated, and the admin-only pages intentionally opt out of SSR where a browser-only editor makes sense.
 - Nuxt UI is used for genuine controls such as the header, buttons, forms, editor, tabs, slideover, badges, breadcrumbs, and cards.
 - The current public redesign is mostly flat and editorial, with good dark-mode pairing and useful loading/empty states.
 - Convex arguments are generally validated and the application consumes its generated API and data-model types.
@@ -29,12 +29,12 @@ It is not yet safe or efficient enough to call production-ready, and it is not f
 - There is no `app/plugins/convexClerk.ts` (or equivalent) to pass Clerk's Convex JWT to the Convex client.
 - There is no `convex/auth.config.ts` configuring Clerk as a Convex auth provider.
 - No Convex handler calls `ctx.auth.getUserIdentity()`.
-- Publicly callable functions include `posts.upsert`, `posts.remove`, `uploads.generateUploadUrl`, `uploads.saveImage`, `tavily.search`, and all public generation session queries/mutations.
+- Publicly callable functions include `posts.upsert`, `posts.remove`, `uploads.generateUploadUrl`, and `uploads.saveImage`.
 - The route middleware admits any signed-in Clerk user; it does not check an admin role, permission, or explicit allowlist.
 
 **Impact**
 
-Someone does not need to visit `/admin` to call these functions. They can read private workflow data, create/update/delete posts, consume paid AI/search services, and write to file storage. Convex functions are public by default, so UI gating is not a backend security boundary.
+Someone does not need to visit `/admin` to call these functions. They can create/update/delete posts and write to file storage. Convex functions are public by default, so UI gating is not a backend security boundary.
 
 **Recommendation**
 
@@ -54,33 +54,28 @@ References: [Convex auth in functions](https://docs.convex.dev/auth/functions-au
 - `convex/posts.ts:23-29` returns any post by ID without authorization.
 - `convex/posts.ts:32-39` returns every post, including drafts and full content, without authorization.
 - `app/pages/blog/[slug].vue:9` calls the unrestricted `posts.list` query merely to select two related entries.
-- `convex/articleGeneration.ts:258-295` exposes generation prompts, drafts, research, sources, status messages, and errors without authorization.
 
 **Impact**
 
-A guessed slug or ID can reveal unpublished writing. Generation sessions may contain sensitive prompts, research, source material, and drafts.
+A guessed slug or ID can reveal unpublished writing.
 
 **Recommendation**
 
 - Replace `getBySlug` with a public `getPublishedBySlug` that returns `null` unless the document is published.
-- Restrict `getById`, `list`, and all generation-session reads to admins.
+- Restrict `getById` and `list` to admins.
 - Return only the fields each public view needs; do not send full article bodies for listing or related-post UI.
 
-#### 3. File upload and paid-service entry points are open and insufficiently constrained
+#### 3. File upload entry points are open and insufficiently constrained
 
 **Evidence**
 
 - `convex/uploads.ts:4-38` has no identity check.
 - The browser's `accept="image/*"` is only a picker hint. The backend trusts caller-provided filename, MIME type, and size and does not enforce a size/type policy.
-- `convex/tavily.ts:4-6` is a public action that can consume Tavily quota.
-- `convex/articleGeneration.ts:297-629` allows public session creation, retries, approval, and deletion, which can consume AI/search quota and write posts.
 
 **Recommendation**
 
-- Require admin authorization before generating upload URLs, recording uploads, searching, or starting/retrying generation.
+- Require admin authorization before generating upload URLs or recording uploads.
 - Enforce allowed MIME types and maximum size after upload metadata is available; delete rejected storage objects.
-- Prefer internal actions for search/generation steps that should only be reached through an authorized public mutation.
-- Add rate/cost limits appropriate for the deployment.
 
 ### P1 — high-value performance and correctness work
 
@@ -100,7 +95,7 @@ Initial HTML contains skeletons rather than post titles/body content. Search/soc
 
 - Enable an SSR-capable public data path using the integration's suspense support or a keyed `useAsyncData` wrapper.
 - SSR the homepage feed, archive, article body, and article metadata; keep real-time subscriptions only where freshness materially helps.
-- Keep editor/generation routes client-only.
+- Keep editor routes client-only.
 - Use `createError({ statusCode: 404 })` or `showError` when a published slug does not exist.
 
 Nuxt recommends `useFetch`/`useAsyncData` for universal data because their payload is transferred to the client without a duplicate hydration fetch. Client-only fetching is intended for non-SEO-sensitive data. See [Nuxt data fetching](https://nuxt.com/docs/4.x/getting-started/data-fetching).
@@ -161,7 +156,7 @@ References: [Convex indexes](https://docs.convex.dev/database/reading-data/index
 
 - Remove the manual Google stylesheet/preconnects and explicitly configure the already-active Nuxt Fonts integration with only the required families, weights, styles, and subsets.
 - Remove dead components before evaluating Tailwind CSS size again.
-- Keep the editor and AI workspace as route-level/lazy chunks; inspect the post-cleanup route graph before adding manual Rollup chunk rules.
+- Keep the editor as a route-level/lazy chunk; inspect the post-cleanup route graph before adding manual Rollup chunk rules.
 - Remove the unused `motion-v/nuxt` module unless motion components are introduced intentionally.
 
 Nuxt's current performance guidance recommends Nuxt Fonts and Nuxt Image for optimized asset delivery: [Nuxt performance best practices](https://nuxt.com/docs/4.x/guide/best-practices/performance).
@@ -187,13 +182,13 @@ Nuxt's current performance guidance recommends Nuxt Fonts and Nuxt Image for opt
 
 - `by_slug` is an index, not a uniqueness constraint. `posts.upsert` can patch an ID to a slug already owned by another post; later `getBySlug(...).unique()` will throw.
 - `AppEditor.vue:281-285` regenerates the slug every time the title changes, including after an author deliberately edits the slug.
-- `slugify` exists separately in `AppEditor.vue`, `convex/posts.ts`, and `convex/articleGeneration.ts`; the `convex/posts.ts` copy is currently unused.
+- `slugify` exists separately in `AppEditor.vue` and `convex/posts.ts`; the `convex/posts.ts` copy is currently unused.
 
 **Recommendation**
 
 - Make the server authoritative: normalize and check slug ownership inside the mutation before insert/patch.
 - Preserve a manually edited slug with a dirty flag; only auto-generate while it has not been customized.
-- Put backend slug normalization in one shared Convex helper and test collision, edit, and generated-draft paths.
+- Put backend slug normalization in one shared Convex helper and test collision and edit paths.
 
 ### P2 — cleanup and maintainability
 
@@ -217,7 +212,6 @@ These exports are referenced only by their own declarations:
 Likely unused direct dependencies/configuration:
 
 - `motion-v` and the `motion-v/nuxt` module: no motion component/composable is used.
-- `@ai-sdk/provider-utils`: no direct import; it is already brought transitively by the AI SDK.
 - `convex-helpers`: no application import.
 
 Remove these one group at a time, run typecheck/build, and compare bundle output. Also remove the tracked `tsconfig.tsbuildinfo` artifact and add `*.tsbuildinfo` to `.gitignore`.
@@ -238,16 +232,12 @@ Remove these one group at a time, run typecheck/build, and compare bundle output
 - Extract shared `PostMeta`, `PostSummaryRow`, and matching skeleton components only where the rendered pattern is genuinely the same.
 - Keep abstraction shallow; the goal is one source of truth, not a parallel UI framework.
 
-#### 12. Three files have grown beyond a maintainable responsibility boundary
+#### 12. The editor has grown beyond a maintainable responsibility boundary
 
-- `app/components/ArticleGenerationWorkspace.vue`: 1,070 lines.
-- `convex/articleGeneration.ts`: 1,172 lines.
 - `app/components/AppEditor.vue`: 731 lines.
 
 Recommended seams:
 
-- Generation UI: session list, workflow status, clarification form, research/source view, outline view, draft review, and a `useArticleGenerationSession` composable.
-- Generation backend: public authorized session commands, internal pipeline orchestration, research, outline, drafting, persistence, and shared validators/helpers.
 - Editor: post state/persistence composable, media-upload composable, toolbar configuration, metadata slideover, and featured-media picker.
 
 This reduces rerender scope, makes authorization harder to omit, and permits focused tests without introducing nested visual surfaces.
@@ -256,7 +246,6 @@ This reduces rerender scope, makes authorization harder to omit, and permits foc
 
 - The project guideline requires `<template>` before `<script>`, but 14 current `.vue` files begin with `<script>`.
 - Public post mapping uses `(post as any)._creationTime`; related posts use `(p: any)`.
-- Generation code uses several `as any` casts, and two backend helpers accept `ctx: any`/IDs as `any` (`convex/articleGeneration.ts:212-226`).
 - `@vueuse/core` is imported directly in `app/layouts/default.vue` but is not a declared direct dependency; it currently works because Nuxt UI hoists it transitively.
 
 **Recommendation**
@@ -293,7 +282,7 @@ This reduces rerender scope, makes authorization harder to omit, and permits foc
 ## Recommended implementation order
 
 1. Wire Clerk tokens into Convex, add `requireAdmin`, and protect/internalize every non-public function.
-2. Split public published queries from private draft/admin queries; close draft, upload, search, and generation exposure.
+2. Split public published queries from private draft/admin queries; close draft and upload exposure.
 3. Add indexed, bounded summary/detail query shapes and pagination.
 4. Restore SSR for public content and real 404/SEO handling.
 5. Remove or interaction-lazy-load the homepage editor; replace archive iframes with thumbnails.
@@ -310,7 +299,7 @@ This reduces rerender scope, makes authorization harder to omit, and permits foc
 
 ## Suggested acceptance checks after remediation
 
-- An anonymous Convex client cannot list drafts, read generation sessions, mutate posts, upload files, or trigger Tavily/AI work.
+- An anonymous Convex client cannot list drafts, mutate posts, or upload files.
 - A normal signed-in user without the admin permission also receives a backend authorization error.
 - Viewing page source for `/`, `/blog`, and a published `/blog/:slug` contains real content and correct metadata.
 - A missing or draft slug returns HTTP 404 publicly.

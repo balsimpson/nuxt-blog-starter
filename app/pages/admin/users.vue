@@ -207,7 +207,7 @@
 import { reactive, ref, watch } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
 import { api } from '~~/convex/_generated/api'
-import type { UserRole } from '../../../shared/admin-access'
+import type { UserRole } from '#shared/admin-access'
 
 type ManagedUser = {
   _id: Id<'users'>

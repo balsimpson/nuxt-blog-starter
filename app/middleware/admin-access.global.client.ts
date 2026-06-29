@@ -3,7 +3,7 @@ import { api } from '~~/convex/_generated/api'
 import {
   canAccessAdminPath,
   getAdminLandingPath
-} from '../../shared/admin-access'
+} from '#shared/admin-access'
 
 function waitForAccessState(timeoutMs = 15000) {
   const accessSession = useAccessSession()
